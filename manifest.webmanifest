@@ -3,7 +3,7 @@
   "short_name": "Feedboard",
   "start_url": "./",
   "display": "standalone",
-  "background_color": "#f6f6f4",
-  "theme_color": "#111111",
-  "description": "Простой локальный планировщик Instagram-ленты."
+  "background_color": "#f7f7f5",
+  "theme_color": "#f7f7f5",
+  "description": "Локальный визуальный планировщик Instagram-ленты."
 }

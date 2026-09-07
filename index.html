@@ -3,32 +3,31 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#111111" />
+  <meta name="theme-color" content="#f7f7f5" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="apple-mobile-web-app-title" content="Feedboard" />
   <link rel="manifest" href="manifest.webmanifest" />
-  <title>Feedboard — Instagram Feed Planner</title>
-
+  <title>Feedboard</title>
   <style>
     :root {
-      --bg: #f6f6f4;
+      --bg: #f7f7f5;
       --panel: #ffffff;
-      --text: #151515;
-      --muted: #777;
-      --line: #e9e9e6;
-      --accent: #151515;
+      --text: #111111;
+      --muted: #7a7a76;
+      --line: #e8e8e4;
+      --soft: #efefec;
       --danger: #b42318;
-      --radius: 20px;
+      --radius: 22px;
     }
 
     * { box-sizing: border-box; }
 
     body {
       margin: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       background: var(--bg);
       color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       -webkit-font-smoothing: antialiased;
       padding-bottom: env(safe-area-inset-bottom);
     }
@@ -36,107 +35,162 @@
     .app {
       width: min(760px, 100%);
       margin: 0 auto;
-      padding: 18px 14px 40px;
+      padding: 20px 14px 40px;
     }
 
-    .topbar {
+    .header {
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       justify-content: space-between;
-      gap: 12px;
+      gap: 10px;
       margin-bottom: 16px;
     }
 
-    .brand h1 {
+    h1 {
       margin: 0;
-      font-size: 26px;
-      letter-spacing: -0.03em;
+      font-size: 30px;
+      letter-spacing: -0.04em;
     }
 
-    .brand p {
+    .subtitle {
       margin: 4px 0 0;
+      font-size: 14px;
       color: var(--muted);
-      font-size: 13px;
     }
+
+    .menu-wrap { position: relative; }
+
+    .icon-btn {
+      width: 42px;
+      height: 42px;
+      padding: 0;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      border-radius: 14px;
+      font-size: 22px;
+      font-weight: 800;
+      display: grid;
+      place-items: center;
+    }
+
+    .menu {
+      position: absolute;
+      top: 48px;
+      right: 0;
+      min-width: 190px;
+      padding: 6px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: var(--panel);
+      box-shadow: 0 12px 30px rgba(0,0,0,.12);
+      z-index: 20;
+      display: none;
+    }
+
+    .menu.open { display: block; }
+
+    .menu button {
+      width: 100%;
+      text-align: left;
+      background: transparent;
+      border-radius: 10px;
+      padding: 11px 12px;
+    }
+
+    .menu button.danger { color: var(--danger); }
 
     .panel {
       background: var(--panel);
       border: 1px solid var(--line);
       border-radius: var(--radius);
       padding: 14px;
-      box-shadow: 0 8px 30px rgba(0,0,0,.04);
+      box-shadow: 0 8px 30px rgba(0,0,0,.035);
+    }
+
+    .projects {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+      margin-bottom: 12px;
+      scrollbar-width: none;
+    }
+
+    .projects::-webkit-scrollbar { display: none; }
+
+    button, .file-button {
+      appearance: none;
+      border: 0;
+      border-radius: 13px;
+      background: var(--soft);
+      color: var(--text);
+      font-weight: 700;
+      font-size: 13px;
+      padding: 11px 13px;
+      cursor: pointer;
+    }
+
+    .project-btn {
+      white-space: nowrap;
+      border: 1px solid var(--line);
+      background: #f2f2ef;
+    }
+
+    .project-btn.active {
+      background: #111;
+      color: #fff;
+      border-color: #111;
     }
 
     .controls {
       display: flex;
       flex-wrap: wrap;
-      gap: 10px;
-      margin-bottom: 14px;
+      gap: 8px;
+      margin-bottom: 12px;
+      align-items: center;
     }
 
-    button, .file-button {
-      appearance: none;
-      border: 0;
-      border-radius: 14px;
-      background: #ededeb;
-      color: var(--text);
-      font-weight: 700;
-      font-size: 14px;
-      padding: 12px 14px;
-      cursor: pointer;
-      transition: .2s ease;
-    }
-
-    button:active, .file-button:active {
-      transform: scale(.98);
-    }
-
-    .primary {
-      background: var(--accent);
+    .file-button {
+      background: #111;
       color: white;
     }
 
-    .danger {
-      color: var(--danger);
-    }
+    input[type="file"] { display: none; }
 
-    input[type="file"] {
-      display: none;
+    .status {
+      margin-left: auto;
+      color: var(--muted);
+      font-size: 11px;
     }
 
     .hint {
-      font-size: 13px;
+      margin: 0 2px 12px;
       color: var(--muted);
-      margin: 2px 2px 14px;
+      font-size: 12px;
       line-height: 1.45;
     }
 
     .grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 3px;
+      gap: 2px;
       background: #fff;
-      border-radius: 14px;
+      min-height: 220px;
       overflow: hidden;
-      min-height: 200px;
-      touch-action: manipulation;
+      border-radius: 10px;
     }
 
     .card {
       position: relative;
       aspect-ratio: 3 / 4;
-      background: #ececea;
+      background: #ededeb;
       overflow: hidden;
       user-select: none;
       -webkit-user-select: none;
       cursor: grab;
     }
 
-    .card.dragging {
-      opacity: .45;
-      outline: 3px solid #111;
-      outline-offset: -3px;
-    }
+    .card.dragging { opacity: .5; }
 
     .card img {
       width: 100%;
@@ -146,34 +200,39 @@
       pointer-events: none;
     }
 
-    .badge {
+    .type-icon {
       position: absolute;
-      left: 6px;
-      bottom: 6px;
-      background: rgba(0,0,0,.64);
-      color: white;
-      border-radius: 999px;
-      padding: 4px 7px;
-      font-size: 10px;
-      line-height: 1;
-      backdrop-filter: blur(8px);
-    }
-
-    .remove {
-      position: absolute;
-      top: 6px;
-      right: 6px;
-      width: 28px;
-      height: 28px;
-      padding: 0;
-      border-radius: 50%;
+      top: 7px;
+      right: 7px;
+      width: 23px;
+      height: 23px;
       display: grid;
       place-items: center;
-      background: rgba(0,0,0,.64);
       color: white;
-      font-size: 17px;
-      line-height: 1;
-      z-index: 2;
+      filter: drop-shadow(0 1px 3px rgba(0,0,0,.45));
+      font-size: 15px;
+      font-weight: 900;
+      pointer-events: none;
+    }
+
+    .delete-btn {
+      display: none;
+      position: absolute;
+      top: 7px;
+      left: 7px;
+      width: 30px;
+      height: 30px;
+      padding: 0;
+      border-radius: 50%;
+      background: rgba(0,0,0,.72);
+      color: white;
+      font-size: 18px;
+      z-index: 5;
+    }
+
+    .card.editing .delete-btn {
+      display: grid;
+      place-items: center;
     }
 
     .empty {
@@ -182,136 +241,228 @@
       display: grid;
       place-items: center;
       text-align: center;
-      padding: 36px 20px;
       color: var(--muted);
       font-size: 14px;
+      padding: 30px;
+      line-height: 1.5;
     }
 
-    .footer-note {
-      margin-top: 14px;
-      font-size: 12px;
-      line-height: 1.5;
+    .bottom-note {
+      margin: 13px 8px 0;
+      text-align: center;
       color: var(--muted);
+      font-size: 11px;
+      line-height: 1.45;
+    }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.38);
+      display: none;
+      align-items: flex-end;
+      justify-content: center;
+      z-index: 50;
+    }
+
+    .modal-backdrop.open { display: flex; }
+
+    .sheet {
+      width: min(760px,100%);
+      background: white;
+      border-radius: 24px 24px 0 0;
+      padding: 18px 16px calc(18px + env(safe-area-inset-bottom));
+      box-shadow: 0 -10px 30px rgba(0,0,0,.12);
+    }
+
+    .sheet h3 { margin: 0 0 12px; font-size: 18px; }
+
+    .type-options {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+
+    .type-choice {
+      padding: 16px 8px;
+      border: 1px solid var(--line);
+      background: #f5f5f2;
       text-align: center;
     }
 
-    .status {
-      font-size: 12px;
-      color: var(--muted);
-      margin-left: auto;
-      align-self: center;
+    .sheet .cancel {
+      width: 100%;
+      margin-top: 10px;
     }
 
     @media (min-width: 620px) {
       .app { padding-top: 28px; }
-      .grid { gap: 5px; }
       .panel { padding: 18px; }
+      .grid { gap: 3px; }
     }
   </style>
 </head>
 
 <body>
   <main class="app">
-    <div class="topbar">
-      <div class="brand">
+    <header class="header">
+      <div>
         <h1>Feedboard</h1>
-        <p>Простой планировщик Instagram-ленты</p>
+        <p class="subtitle">Визуальный планировщик Instagram-ленты</p>
       </div>
-    </div>
+
+      <div class="menu-wrap">
+        <button id="menuBtn" class="icon-btn" aria-label="Меню">•••</button>
+        <div id="menu" class="menu">
+          <button id="editModeBtn">Удалить фото</button>
+          <button id="exportBtn">Сохранить превью</button>
+          <button id="clearBtn" class="danger">Очистить текущую ленту</button>
+        </div>
+      </div>
+    </header>
 
     <section class="panel">
+      <div id="projects" class="projects"></div>
+
       <div class="controls">
-        <label class="file-button primary" for="fileInput">+ Добавить фото</label>
+        <label class="file-button" for="fileInput">+ Добавить фото</label>
         <input id="fileInput" type="file" accept="image/*" multiple />
-
-        <button id="reverseBtn" type="button">Развернуть порядок</button>
-        <button id="clearBtn" type="button" class="danger">Очистить</button>
-
         <span id="status" class="status">Сохранено</span>
       </div>
 
-      <div class="hint">
-        Загрузи фото и перетаскивай их пальцем или мышкой. Порядок сохраняется автоматически прямо на этом устройстве.
-      </div>
+      <p class="hint">
+        Перетаскивай публикации пальцем. Нажми на фото, чтобы выбрать: Фото, Карусель или Reel.
+      </p>
 
       <div id="grid" class="grid"></div>
 
-      <div class="footer-note">
-        Фото хранятся локально в браузере и не отправляются на сервер.
-      </div>
+      <p class="bottom-note">
+        Все проекты и изображения хранятся только на этом устройстве и не отправляются на сервер.
+      </p>
     </section>
   </main>
 
+  <div id="typeModal" class="modal-backdrop">
+    <div class="sheet">
+      <h3>Тип публикации</h3>
+      <div class="type-options">
+        <button class="type-choice" data-type="photo">Фото</button>
+        <button class="type-choice" data-type="carousel">Карусель</button>
+        <button class="type-choice" data-type="reel">Reel</button>
+      </div>
+      <button id="modalCancel" class="cancel">Отмена</button>
+    </div>
+  </div>
+
 <script>
-const DB_NAME = "feedboard-db";
-const STORE_NAME = "posts";
+const DB_NAME = "feedboard-v2-db";
+const STORE = "posts";
 const DB_VERSION = 1;
 
+const PROJECTS = ["Personal", "Project 1", "Project 2"];
+const ACTIVE_KEY = "feedboard-active-project";
+
+let activeProject = localStorage.getItem(ACTIVE_KEY) || PROJECTS[0];
 let items = [];
-let dragIndex = null;
-let touchDragIndex = null;
+let dragId = null;
+let editing = false;
+let selectedItemId = null;
 
 const grid = document.getElementById("grid");
+const projectsEl = document.getElementById("projects");
 const fileInput = document.getElementById("fileInput");
-const clearBtn = document.getElementById("clearBtn");
-const reverseBtn = document.getElementById("reverseBtn");
 const statusEl = document.getElementById("status");
+const menu = document.getElementById("menu");
+const typeModal = document.getElementById("typeModal");
 
 function openDB() {
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
-
     req.onupgradeneeded = () => {
       const db = req.result;
-      if (!db.objectStoreNames.contains(STORE_NAME)) {
-        db.createObjectStore(STORE_NAME, { keyPath: "id" });
+      if (!db.objectStoreNames.contains(STORE)) {
+        db.createObjectStore(STORE, { keyPath: "id" });
       }
     };
-
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
   });
 }
 
-async function loadItems() {
+async function getAllPosts() {
   const db = await openDB();
   return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, "readonly");
-    const store = tx.objectStore(STORE_NAME);
-    const req = store.getAll();
-
-    req.onsuccess = () => {
-      const result = (req.result || []).sort((a,b) => a.order - b.order);
-      resolve(result);
-    };
+    const tx = db.transaction(STORE, "readonly");
+    const req = tx.objectStore(STORE).getAll();
+    req.onsuccess = () => resolve(req.result || []);
     req.onerror = () => reject(req.error);
   });
 }
 
-async function saveAll() {
+async function loadProject() {
+  const all = await getAllPosts();
+  items = all
+    .filter(item => item.project === activeProject)
+    .sort((a,b) => a.order - b.order);
+  render();
+}
+
+async function saveItems() {
   statusEl.textContent = "Сохраняю…";
-
   const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, "readwrite");
-    const store = tx.objectStore(STORE_NAME);
 
-    store.clear();
+  await new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, "readwrite");
+    const store = tx.objectStore(STORE);
 
     items.forEach((item, index) => {
       item.order = index;
+      item.project = activeProject;
       store.put(item);
     });
 
-    tx.oncomplete = () => {
-      statusEl.textContent = "Сохранено";
-      resolve();
-    };
-    tx.onerror = () => {
-      statusEl.textContent = "Ошибка сохранения";
-      reject(tx.error);
-    };
+    tx.oncomplete = resolve;
+    tx.onerror = () => reject(tx.error);
   });
+
+  statusEl.textContent = "Сохранено";
+}
+
+async function deleteItem(id) {
+  const db = await openDB();
+  await new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, "readwrite");
+    tx.objectStore(STORE).delete(id);
+    tx.oncomplete = resolve;
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+function renderProjects() {
+  projectsEl.innerHTML = "";
+
+  PROJECTS.forEach(name => {
+    const btn = document.createElement("button");
+    btn.className = "project-btn" + (name === activeProject ? " active" : "");
+    btn.textContent = name;
+
+    btn.addEventListener("click", async () => {
+      activeProject = name;
+      localStorage.setItem(ACTIVE_KEY, activeProject);
+      editing = false;
+      document.getElementById("editModeBtn").textContent = "Удалить фото";
+      renderProjects();
+      await loadProject();
+    });
+
+    projectsEl.appendChild(btn);
+  });
+}
+
+function iconFor(type) {
+  if (type === "carousel") return "▱";
+  if (type === "reel") return "▶";
+  return "";
 }
 
 function render() {
@@ -320,153 +471,236 @@ function render() {
   if (!items.length) {
     const empty = document.createElement("div");
     empty.className = "empty";
-    empty.innerHTML = "Здесь появится твоя лента.<br><br>Нажми <strong>«+ Добавить фото»</strong>.";
+    empty.innerHTML = `Лента <strong>${activeProject}</strong> пока пустая.<br><br>Добавь будущие публикации.`;
     grid.appendChild(empty);
     return;
   }
 
   items.forEach((item, index) => {
     const card = document.createElement("div");
-    card.className = "card";
+    card.className = "card" + (editing ? " editing" : "");
     card.draggable = true;
-    card.dataset.index = index;
     card.dataset.id = item.id;
 
     const img = document.createElement("img");
     img.src = URL.createObjectURL(item.file);
-    img.alt = "Пост " + (index + 1);
+    img.alt = "Публикация";
 
-    const badge = document.createElement("span");
-    badge.className = "badge";
-    badge.textContent = index + 1;
+    const icon = document.createElement("span");
+    icon.className = "type-icon";
+    icon.textContent = iconFor(item.type || "photo");
 
-    const remove = document.createElement("button");
-    remove.className = "remove";
-    remove.type = "button";
-    remove.setAttribute("aria-label", "Удалить");
-    remove.textContent = "×";
+    const del = document.createElement("button");
+    del.className = "delete-btn";
+    del.textContent = "×";
+    del.setAttribute("aria-label", "Удалить");
 
-    remove.addEventListener("click", async (e) => {
+    del.addEventListener("click", async (e) => {
       e.stopPropagation();
       items.splice(index, 1);
+      await deleteItem(item.id);
       render();
-      await saveAll();
+      await saveItems();
+    });
+
+    card.addEventListener("click", (e) => {
+      if (editing || e.target.closest(".delete-btn")) return;
+      selectedItemId = item.id;
+      typeModal.classList.add("open");
     });
 
     card.addEventListener("dragstart", () => {
-      dragIndex = index;
+      dragId = item.id;
       card.classList.add("dragging");
+    });
+
+    card.addEventListener("dragover", e => e.preventDefault());
+
+    card.addEventListener("drop", async e => {
+      e.preventDefault();
+      const from = items.findIndex(x => x.id === dragId);
+      if (from < 0 || from === index) return;
+      const moved = items.splice(from,1)[0];
+      items.splice(index,0,moved);
+      dragId = null;
+      render();
+      await saveItems();
     });
 
     card.addEventListener("dragend", () => {
-      dragIndex = null;
+      dragId = null;
       card.classList.remove("dragging");
     });
 
-    card.addEventListener("dragover", (e) => e.preventDefault());
-
-    card.addEventListener("drop", async (e) => {
-      e.preventDefault();
-      if (dragIndex === null || dragIndex === index) return;
-
-      const moved = items.splice(dragIndex, 1)[0];
-      items.splice(index, 0, moved);
-
-      dragIndex = null;
-      render();
-      await saveAll();
-    });
-
-    // Touch support for iPhone / Android.
-    // На телефоне двигаем сами DOM-карточки, а массив обновляем в конце жеста.
     card.addEventListener("touchstart", (e) => {
-      if (e.target.closest(".remove")) return;
-      touchDragIndex = index;
+      if (editing || e.target.closest(".delete-btn")) return;
+      dragId = item.id;
       card.classList.add("dragging");
-    }, { passive: true });
+    }, {passive:true});
 
     card.addEventListener("touchmove", (e) => {
-      if (touchDragIndex === null) return;
-
+      if (!dragId || editing) return;
       const touch = e.touches[0];
       const target = document.elementFromPoint(touch.clientX, touch.clientY);
       const targetCard = target && target.closest(".card");
-
       if (!targetCard || targetCard === card || targetCard.parentElement !== grid) return;
 
       const cards = [...grid.querySelectorAll(".card")];
-      const currentPos = cards.indexOf(card);
-      const targetPos = cards.indexOf(targetCard);
+      const a = cards.indexOf(card);
+      const b = cards.indexOf(targetCard);
 
-      if (currentPos < targetPos) {
-        grid.insertBefore(card, targetCard.nextSibling);
-      } else {
-        grid.insertBefore(card, targetCard);
-      }
-    }, { passive: true });
+      if (a < b) grid.insertBefore(card, targetCard.nextSibling);
+      else grid.insertBefore(card, targetCard);
+    }, {passive:true});
 
     card.addEventListener("touchend", async () => {
-      const orderedIds = [...grid.querySelectorAll(".card")].map(el => el.dataset.id);
-      items.sort((a, b) => orderedIds.indexOf(a.id) - orderedIds.indexOf(b.id));
-
-      touchDragIndex = null;
-      document.querySelectorAll(".dragging").forEach(el => el.classList.remove("dragging"));
-
+      if (editing) return;
+      const ids = [...grid.querySelectorAll(".card")].map(el => el.dataset.id);
+      items.sort((a,b) => ids.indexOf(a.id) - ids.indexOf(b.id));
+      dragId = null;
+      card.classList.remove("dragging");
       render();
-      await saveAll();
+      await saveItems();
     });
 
-    card.appendChild(img);
-    card.appendChild(badge);
-    card.appendChild(remove);
+    card.append(img, icon, del);
     grid.appendChild(card);
   });
 }
 
-fileInput.addEventListener("change", async (e) => {
+fileInput.addEventListener("change", async e => {
   const files = [...e.target.files];
-  if (!files.length) return;
 
   for (const file of files) {
     items.push({
       id: crypto.randomUUID(),
+      project: activeProject,
       file,
+      type: "photo",
       order: items.length
     });
   }
 
   render();
-  await saveAll();
+  await saveItems();
   fileInput.value = "";
 });
 
-clearBtn.addEventListener("click", async () => {
+document.getElementById("menuBtn").addEventListener("click", e => {
+  e.stopPropagation();
+  menu.classList.toggle("open");
+});
+
+document.addEventListener("click", () => menu.classList.remove("open"));
+
+menu.addEventListener("click", e => e.stopPropagation());
+
+document.getElementById("editModeBtn").addEventListener("click", () => {
+  editing = !editing;
+  document.getElementById("editModeBtn").textContent = editing ? "Готово" : "Удалить фото";
+  menu.classList.remove("open");
+  render();
+});
+
+document.getElementById("clearBtn").addEventListener("click", async () => {
+  menu.classList.remove("open");
   if (!items.length) return;
 
-  const ok = confirm("Удалить все фото из планировщика?");
-  if (!ok) return;
+  if (!confirm(`Очистить ленту «${activeProject}»?`)) return;
 
+  const ids = items.map(x => x.id);
+  for (const id of ids) await deleteItem(id);
   items = [];
   render();
-  await saveAll();
+  statusEl.textContent = "Сохранено";
 });
 
-reverseBtn.addEventListener("click", async () => {
-  items.reverse();
-  render();
-  await saveAll();
+document.querySelectorAll(".type-choice").forEach(btn => {
+  btn.addEventListener("click", async () => {
+    const item = items.find(x => x.id === selectedItemId);
+    if (item) {
+      item.type = btn.dataset.type;
+      await saveItems();
+      render();
+    }
+    typeModal.classList.remove("open");
+    selectedItemId = null;
+  });
 });
 
-(async function init() {
-  try {
-    items = await loadItems();
-    render();
-  } catch (err) {
-    console.error(err);
-    statusEl.textContent = "Не удалось загрузить";
-    render();
+document.getElementById("modalCancel").addEventListener("click", () => {
+  typeModal.classList.remove("open");
+  selectedItemId = null;
+});
+
+typeModal.addEventListener("click", e => {
+  if (e.target === typeModal) {
+    typeModal.classList.remove("open");
+    selectedItemId = null;
   }
-})();
+});
+
+document.getElementById("exportBtn").addEventListener("click", async () => {
+  menu.classList.remove("open");
+
+  if (!items.length) {
+    alert("Сначала добавь фотографии.");
+    return;
+  }
+
+  const cellW = 600;
+  const cellH = 800;
+  const cols = 3;
+  const rows = Math.ceil(items.length / cols);
+
+  const canvas = document.createElement("canvas");
+  canvas.width = cellW * cols;
+  canvas.height = cellH * rows;
+  const ctx = canvas.getContext("2d");
+
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  for (let i=0; i<items.length; i++) {
+    const item = items[i];
+    const bitmap = await createImageBitmap(item.file);
+
+    const targetX = (i % cols) * cellW;
+    const targetY = Math.floor(i / cols) * cellH;
+
+    const scale = Math.max(cellW / bitmap.width, cellH / bitmap.height);
+    const sw = cellW / scale;
+    const sh = cellH / scale;
+    const sx = (bitmap.width - sw) / 2;
+    const sy = (bitmap.height - sh) / 2;
+
+    ctx.drawImage(bitmap, sx, sy, sw, sh, targetX, targetY, cellW, cellH);
+
+    if ((item.type || "photo") !== "photo") {
+      ctx.fillStyle = "rgba(0,0,0,.55)";
+      ctx.beginPath();
+      ctx.arc(targetX + cellW - 48, targetY + 48, 28, 0, Math.PI*2);
+      ctx.fill();
+
+      ctx.fillStyle = "#fff";
+      ctx.font = "bold 28px -apple-system, sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(item.type === "reel" ? "▶" : "▱", targetX + cellW - 48, targetY + 48);
+    }
+  }
+
+  canvas.toBlob(blob => {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `feedboard-${activeProject.toLowerCase().replaceAll(" ","-")}.png`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }, "image/png");
+});
+
+renderProjects();
+loadProject();
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
