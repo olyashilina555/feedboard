@@ -108,9 +108,34 @@ input[type=file]{display:none}
   pointer-events:none;-webkit-user-drag:none
 }
 .type-icon{
-  position:absolute;right:7px;top:7px;width:24px;height:24px;
-  display:grid;place-items:center;color:#fff;font-size:15px;font-weight:900;
-  text-shadow:0 1px 5px rgba(0,0,0,.65);pointer-events:none
+  position:absolute;right:7px;top:7px;width:25px;height:25px;
+  display:grid;place-items:center;color:#fff;
+  pointer-events:none;z-index:3
+}
+.type-icon:empty{display:none}
+.reel-icon{
+  font-size:14px;font-weight:900;
+  text-shadow:0 1px 5px rgba(0,0,0,.7);
+}
+.carousel-icon{
+  display:block;
+  width:24px;height:24px;
+  filter:drop-shadow(0 1px 3px rgba(0,0,0,.45));
+}
+.carousel-back,
+.carousel-front{
+  position:absolute;
+  width:15px;height:15px;
+  border:2px solid #fff;
+  border-radius:3px;
+  background:transparent;
+}
+.carousel-back{
+  top:3px;left:6px;
+}
+.carousel-front{
+  top:6px;left:3px;
+  background:rgba(0,0,0,.06);
 }
 .delete-btn{
   display:none;position:absolute;left:7px;top:7px;width:30px;height:30px;
@@ -326,9 +351,22 @@ function renderProjects(){
 }
 
 function typeIcon(type){
-  if(type==="carousel")return "▱";
   if(type==="reel")return "▶";
   return "";
+}
+
+function applyTypeIcon(icon,type){
+  icon.className="type-icon";
+  icon.textContent="";
+  icon.innerHTML="";
+
+  if(type==="reel"){
+    icon.classList.add("reel-icon");
+    icon.textContent="▶";
+  }else if(type==="carousel"){
+    icon.classList.add("carousel-icon");
+    icon.innerHTML='<span class="carousel-back"></span><span class="carousel-front"></span>';
+  }
 }
 
 function makeCard(item){
@@ -341,8 +379,7 @@ function makeCard(item){
   img.alt="Публикация";
 
   const icon=document.createElement("span");
-  icon.className="type-icon";
-  icon.textContent=typeIcon(item.type||"photo");
+  applyTypeIcon(icon,item.type||"photo");
 
   const del=document.createElement("button");
   del.className="delete-btn";
@@ -524,7 +561,7 @@ document.querySelectorAll(".type-choice").forEach(btn=>{
     if(item){
       item.type=btn.dataset.type;
       const card=grid.querySelector(`[data-id="${item.id}"]`);
-      if(card)card.querySelector(".type-icon").textContent=typeIcon(item.type);
+      if(card)applyTypeIcon(card.querySelector(".type-icon"),item.type);
       await saveItems();
     }
     typeModal.classList.remove("open");
