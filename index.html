@@ -178,7 +178,7 @@ input[type=file]{display:none}
 .cancel{width:100%;margin-top:9px}
 @media(min-width:620px){.app{padding-top:28px}.panel{padding:18px}.grid{gap:3px}}
 
-/* V3.3 — viewer, carousel editor and mobile drag fixes */
+/* V3.5 — direct carousel creation + faster carousel reorder */
 body.dragging{overscroll-behavior:none}
 .viewer-backdrop{
   display:none;position:fixed;inset:0;background:rgba(0,0,0,.72);
@@ -267,6 +267,18 @@ body.dragging{overscroll-behavior:none}
 .carousel-move button+button{border-left:1px solid var(--line)}
 .viewer-note{font-size:11px;color:var(--muted);line-height:1.45;margin:10px 2px 0}
 
+
+.create-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.carousel-main-button{
+  background:var(--soft)!important;color:var(--text)!important;
+  border:1px solid var(--line)!important
+}
+.carousel-thumb{touch-action:manipulation}
+.carousel-move button{
+  -webkit-tap-highlight-color:transparent;touch-action:manipulation
+}
+.carousel-move button:active{transform:scale(.94)}
+
 </style>
 </head>
 <body>
@@ -292,8 +304,13 @@ body.dragging{overscroll-behavior:none}
     <div id="projects" class="projects"></div>
 
     <div class="controls">
-      <label class="file-button" for="fileInput">+ Добавить фото</label>
-      <input id="fileInput" type="file" accept="image/*" multiple>
+      <div class="create-actions">
+        <label class="file-button" for="fileInput">+ Добавить фото</label>
+        <input id="fileInput" type="file" accept="image/*" multiple>
+
+        <label class="file-button carousel-main-button" for="newCarouselInput">+ Создать карусель</label>
+        <input id="newCarouselInput" type="file" accept="image/*" multiple>
+      </div>
       <span id="status" class="status">Сохранено</span>
     </div>
 
@@ -336,7 +353,7 @@ body.dragging{overscroll-behavior:none}
       <input id="carouselInput" type="file" accept="image/*" multiple>
       <label class="carousel-add" for="carouselInput">+ Добавить фото в карусель</label>
       <div id="carouselStrip" class="carousel-strip"></div>
-      <p class="viewer-note">Стрелками под миниатюрами можно менять последовательность. Первое фото будет обложкой карусели в ленте.</p>
+      <p class="viewer-note">Стрелками под миниатюрами меняй последовательность. Изменения применяются сразу. Первое фото — обложка карусели в ленте.</p>
     </div>
   </div>
 </div>
@@ -360,6 +377,7 @@ const objectUrls=new Map();
 const grid=document.getElementById("grid");
 const projectsEl=document.getElementById("projects");
 const fileInput=document.getElementById("fileInput");
+const newCarouselInput=document.getElementById("newCarouselInput");
 const statusEl=document.getElementById("status");
 const menu=document.getElementById("menu");
 const themeBtn=document.getElementById("themeBtn");
@@ -413,17 +431,27 @@ async function getAllPosts(){
 async function saveItems(){
   statusEl.textContent="Сохраняю…";
   const db=await openDB();
+
   await new Promise((resolve,reject)=>{
     const tx=db.transaction(STORE,"readwrite");
     const store=tx.objectStore(STORE);
-    items.forEach((item,index)=>{
-      item.order=index;
-      item.project=activeProject;
-      store.put(item);
-    });
+
+    try{
+      items.forEach((item,index)=>{
+        item.order=index;
+        item.project=activeProject;
+        store.put(item);
+      });
+    }catch(err){
+      reject(err);
+      return;
+    }
+
     tx.oncomplete=resolve;
-    tx.onerror=()=>reject(tx.error);
+    tx.onerror=()=>reject(tx.error||new Error("IndexedDB save failed"));
+    tx.onabort=()=>reject(tx.error||new Error("IndexedDB transaction aborted"));
   });
+
   statusEl.textContent="Сохранено";
 }
 
@@ -510,8 +538,17 @@ function refreshCard(item){
   const card=grid.querySelector(`[data-id="${item.id}"]`);
   if(!card)return;
   const img=card.querySelector("img");
+
+  // Only recreate the image URL when the actual cover/image list changed.
+  // Do not use this for a simple Photo/Carousel/Reel type switch.
   releaseUrls(item.id);
   img.src=urlForFile(item,0);
+  applyTypeIcon(card.querySelector(".type-icon"),item.type||"photo");
+}
+
+function refreshCardMeta(item){
+  const card=grid.querySelector(`[data-id="${item.id}"]`);
+  if(!card)return;
   applyTypeIcon(card.querySelector(".type-icon"),item.type||"photo");
 }
 
@@ -771,7 +808,7 @@ function setupHoldDrag(card,item){
   });
 }
 
-/* ---------- V3.3: publication viewer + real carousel ---------- */
+/* ---------- V3.4: publication viewer + stable type switching ---------- */
 function selectedItem(){
   return items.find(x=>x.id===selectedItemId);
 }
@@ -862,17 +899,41 @@ function renderCarouselStrip(item){
   });
 }
 
-async function moveCarouselImage(item,from,to){
+let carouselSaveTimer=null;
+
+function scheduleCarouselSave(){
+  clearTimeout(carouselSaveTimer);
+  statusEl.textContent="Сохраняю…";
+  carouselSaveTimer=setTimeout(async()=>{
+    try{
+      await saveItems();
+      statusEl.textContent="Сохранено";
+    }catch(err){
+      console.error("Carousel save error",err);
+      statusEl.textContent="Ошибка сохранения";
+    }
+  },220);
+}
+
+function moveCarouselImage(item,from,to){
   const files=ensureCarouselFiles(item);
-  if(to<0||to>=files.length)return;
+  if(to<0||to>=files.length||from===to)return;
+
+  const oldCover=files[0];
   const [moved]=files.splice(from,1);
   files.splice(to,0,moved);
   item.file=files[0];
   viewerIndex=to;
-  releaseUrls(item.id);
-  await saveItems();
-  refreshCard(item);
+
+  // UI changes instantly; persistence happens shortly after.
   renderViewer();
+
+  if(oldCover!==files[0]){
+    refreshCard(item);
+    renderViewer();
+  }
+
+  scheduleCarouselSave();
 }
 
 viewerPrev.addEventListener("click",()=>{
@@ -911,15 +972,19 @@ document.querySelectorAll(".viewer-type").forEach(btn=>{
     const item=selectedItem();
     if(!item)return;
 
+    const previousType=item.type||"photo";
     const newType=btn.dataset.type;
+    if(newType===previousType)return;
+
     item.type=newType;
 
     if(newType==="carousel"){
       ensureCarouselFiles(item);
     }
 
-    // Сначала обновляем интерфейс — кнопка и значок меняются сразу.
-    refreshCard(item);
+    // IMPORTANT: switching the publication type must not revoke the image URL.
+    // Only update the badge/icon and the viewer controls.
+    refreshCardMeta(item);
     renderViewer();
 
     try{
@@ -927,7 +992,19 @@ document.querySelectorAll(".viewer-type").forEach(btn=>{
       statusEl.textContent="Сохранено";
     }catch(err){
       console.error("Type save error",err);
-      statusEl.textContent="Ошибка сохранения";
+
+      // Roll back the visual type if persistence failed.
+      item.type=previousType;
+      refreshCardMeta(item);
+      renderViewer();
+
+      // Keep the existing image intact and show a non-destructive warning.
+      statusEl.textContent="Не удалось сохранить тип";
+      setTimeout(()=>{
+        if(statusEl.textContent==="Не удалось сохранить тип"){
+          statusEl.textContent="";
+        }
+      },2500);
     }
   });
 });
@@ -936,15 +1013,39 @@ carouselInput.addEventListener("change",async(e)=>{
   const item=selectedItem();
   const files=[...e.target.files];
   if(!item||!files.length)return;
+
+  const previousType=item.type||"photo";
+  const previousFiles=Array.isArray(item.carouselFiles)?[...item.carouselFiles]:null;
+  const previousFile=item.file;
+
   item.type="carousel";
   const list=ensureCarouselFiles(item);
   list.push(...files);
   item.file=list[0];
-  releaseUrls(item.id);
-  await saveItems();
-  refreshCard(item);
   viewerIndex=Math.max(0,list.length-files.length);
+
+  // Show the new carousel immediately without invalidating the current image first.
+  refreshCardMeta(item);
   renderViewer();
+
+  try{
+    await saveItems();
+    // Cover may have changed only if this was an unusual legacy item;
+    // refresh the card image after persistence succeeds.
+    refreshCard(item);
+    renderViewer();
+  }catch(err){
+    console.error("Carousel add save error",err);
+    item.type=previousType;
+    item.file=previousFile;
+    if(previousFiles) item.carouselFiles=previousFiles;
+    else delete item.carouselFiles;
+    viewerIndex=0;
+    refreshCardMeta(item);
+    renderViewer();
+    statusEl.textContent="Не удалось добавить фото";
+  }
+
   carouselInput.value="";
 });
 
@@ -975,6 +1076,49 @@ fileInput.addEventListener("change",async(e)=>{
 
   await saveItems();
   fileInput.value="";
+});
+
+
+/* ---------- V3.5: direct carousel creation ---------- */
+newCarouselInput.addEventListener("change",async(e)=>{
+  const files=[...e.target.files];
+  if(!files.length)return;
+
+  if(files.length<2){
+    statusEl.textContent="Для карусели выбери минимум 2 фото";
+    setTimeout(()=>{
+      if(statusEl.textContent==="Для карусели выбери минимум 2 фото")statusEl.textContent="";
+    },2200);
+    newCarouselInput.value="";
+    return;
+  }
+
+  const item={
+    id:crypto.randomUUID(),
+    project:activeProject,
+    file:files[0],
+    carouselFiles:files,
+    type:"carousel",
+    order:items.length
+  };
+
+  items.push(item);
+  const empty=grid.querySelector(".empty");
+  if(empty)empty.remove();
+  grid.appendChild(makeCard(item));
+
+  try{
+    await saveItems();
+    statusEl.textContent="Сохранено";
+  }catch(err){
+    console.error("Create carousel error",err);
+    items=items.filter(x=>x.id!==item.id);
+    releaseUrls(item.id);
+    renderFullGrid();
+    statusEl.textContent="Ошибка сохранения";
+  }
+
+  newCarouselInput.value="";
 });
 
 document.getElementById("menuBtn").addEventListener("click",(e)=>{
