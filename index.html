@@ -169,6 +169,90 @@ input[type=file]{display:none}
 }
 .cancel{width:100%;margin-top:9px}
 @media(min-width:620px){.app{padding-top:28px}.panel{padding:18px}.grid{gap:3px}}
+
+/* V3.2 — viewer, carousel editor and mobile drag auto-scroll */
+body.dragging{overscroll-behavior:none}
+.viewer-backdrop{
+  display:none;position:fixed;inset:0;background:rgba(0,0,0,.72);
+  z-index:100;align-items:flex-end;justify-content:center
+}
+.viewer-backdrop.open{display:flex}
+.viewer-sheet{
+  width:min(760px,100%);max-height:94dvh;overflow:auto;
+  background:var(--panel);color:var(--text);
+  border-radius:24px 24px 0 0;
+  padding:14px 14px calc(16px + env(safe-area-inset-bottom))
+}
+.viewer-head{
+  display:flex;align-items:center;justify-content:space-between;
+  gap:10px;margin-bottom:10px
+}
+.viewer-head h3{margin:0;font-size:18px}
+.viewer-close{
+  width:38px;height:38px;border:1px solid var(--line);
+  background:var(--soft);color:var(--text);border-radius:12px;
+  font-size:22px;line-height:1
+}
+.viewer-stage{
+  position:relative;width:100%;background:#090909;
+  aspect-ratio:4/5;overflow:hidden;display:grid;place-items:center
+}
+.viewer-stage img{
+  width:100%;height:100%;object-fit:contain;display:block;
+  user-select:none;-webkit-user-select:none;touch-action:pan-y
+}
+.viewer-counter{
+  position:absolute;right:10px;top:10px;
+  padding:5px 8px;border-radius:999px;background:rgba(0,0,0,.62);
+  color:white;font-size:12px;font-weight:750
+}
+.viewer-arrow{
+  position:absolute;top:50%;transform:translateY(-50%);
+  width:38px;height:44px;border:0;border-radius:12px;
+  background:rgba(0,0,0,.48);color:#fff;font-size:26px;
+  display:none;place-items:center
+}
+.viewer-arrow.show{display:grid}
+.viewer-prev{left:8px}.viewer-next{right:8px}
+.viewer-section{margin-top:14px}
+.viewer-label{font-size:12px;color:var(--muted);margin:0 0 8px}
+.viewer-types{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
+.viewer-type{
+  border:1px solid var(--line);background:var(--soft);color:var(--text);
+  border-radius:12px;padding:11px 6px;font-weight:750;font-size:13px
+}
+.viewer-type.active{background:var(--text);color:var(--bg);border-color:var(--text)}
+.carousel-tools{display:none;margin-top:12px}
+.carousel-tools.show{display:block}
+.carousel-add{
+  width:100%;border:1px solid var(--line);background:var(--soft);color:var(--text);
+  border-radius:13px;padding:12px;font-weight:800
+}
+.carousel-strip{
+  display:flex;gap:8px;overflow-x:auto;padding:10px 1px 3px;
+  scrollbar-width:none
+}
+.carousel-strip::-webkit-scrollbar{display:none}
+.carousel-thumb{
+  position:relative;flex:0 0 82px;border:2px solid transparent;
+  border-radius:10px;overflow:hidden;background:var(--soft)
+}
+.carousel-thumb.active{border-color:var(--text)}
+.carousel-thumb img{display:block;width:100%;aspect-ratio:1/1;object-fit:cover}
+.carousel-number{
+  position:absolute;left:5px;top:5px;min-width:20px;height:20px;
+  padding:0 5px;border-radius:999px;background:rgba(0,0,0,.68);
+  color:#fff;font-size:10px;font-weight:800;display:grid;place-items:center
+}
+.carousel-move{
+  display:grid;grid-template-columns:1fr 1fr;border-top:1px solid var(--line)
+}
+.carousel-move button{
+  border:0;background:var(--soft);color:var(--text);height:30px;font-size:18px
+}
+.carousel-move button+button{border-left:1px solid var(--line)}
+.viewer-note{font-size:11px;color:var(--muted);line-height:1.45;margin:10px 2px 0}
+
 </style>
 </head>
 <body>
@@ -200,7 +284,7 @@ input[type=file]{display:none}
     </div>
 
     <p class="hint">
-      Зажми публикацию на мгновение и перетащи. Обычный тап открывает тип публикации.
+      Зажми публикацию и перетащи. Подведи к краю экрана — лента прокрутится сама. Обычный тап открывает публикацию.
     </p>
 
     <div id="grid" class="grid"></div>
@@ -211,15 +295,35 @@ input[type=file]{display:none}
   </section>
 </main>
 
-<div id="typeModal" class="modal-backdrop">
-  <div class="sheet">
-    <h3>Тип публикации</h3>
-    <div class="type-options">
-      <button class="type-choice" data-type="photo">Фото</button>
-      <button class="type-choice" data-type="carousel">Карусель</button>
-      <button class="type-choice" data-type="reel">Reel</button>
+<div id="viewerModal" class="viewer-backdrop">
+  <div class="viewer-sheet">
+    <div class="viewer-head">
+      <h3 id="viewerTitle">Публикация</h3>
+      <button id="viewerClose" class="viewer-close" aria-label="Закрыть">×</button>
     </div>
-    <button id="modalCancel" class="cancel">Отмена</button>
+
+    <div id="viewerStage" class="viewer-stage">
+      <img id="viewerImage" alt="Просмотр публикации">
+      <span id="viewerCounter" class="viewer-counter"></span>
+      <button id="viewerPrev" class="viewer-arrow viewer-prev" aria-label="Предыдущее фото">‹</button>
+      <button id="viewerNext" class="viewer-arrow viewer-next" aria-label="Следующее фото">›</button>
+    </div>
+
+    <div class="viewer-section">
+      <p class="viewer-label">Тип публикации</p>
+      <div class="viewer-types">
+        <button class="viewer-type" data-type="photo">Фото</button>
+        <button class="viewer-type" data-type="carousel">Карусель</button>
+        <button class="viewer-type" data-type="reel">Reel</button>
+      </div>
+    </div>
+
+    <div id="carouselTools" class="carousel-tools">
+      <input id="carouselInput" type="file" accept="image/*" multiple>
+      <label class="carousel-add" for="carouselInput">+ Добавить фото в карусель</label>
+      <div id="carouselStrip" class="carousel-strip"></div>
+      <p class="viewer-note">Стрелками под миниатюрами можно менять последовательность. Первое фото будет обложкой карусели в ленте.</p>
+    </div>
   </div>
 </div>
 
@@ -235,6 +339,7 @@ let activeProject=localStorage.getItem(ACTIVE_KEY)||PROJECTS[0];
 let items=[];
 let editing=false;
 let selectedItemId=null;
+let viewerIndex=0;
 let dragState=null;
 const objectUrls=new Map();
 
@@ -243,9 +348,17 @@ const projectsEl=document.getElementById("projects");
 const fileInput=document.getElementById("fileInput");
 const statusEl=document.getElementById("status");
 const menu=document.getElementById("menu");
-const typeModal=document.getElementById("typeModal");
 const themeBtn=document.getElementById("themeBtn");
 const themeColor=document.getElementById("themeColor");
+
+const viewerModal=document.getElementById("viewerModal");
+const viewerImage=document.getElementById("viewerImage");
+const viewerCounter=document.getElementById("viewerCounter");
+const viewerPrev=document.getElementById("viewerPrev");
+const viewerNext=document.getElementById("viewerNext");
+const carouselTools=document.getElementById("carouselTools");
+const carouselInput=document.getElementById("carouselInput");
+const carouselStrip=document.getElementById("carouselStrip");
 
 function applyTheme(theme){
   document.documentElement.dataset.theme=theme;
@@ -310,24 +423,39 @@ async function deleteFromDB(id){
   });
 }
 
-function urlFor(item){
-  if(!objectUrls.has(item.id)){
-    objectUrls.set(item.id,URL.createObjectURL(item.file));
-  }
-  return objectUrls.get(item.id);
+function mediaFiles(item){
+  if(Array.isArray(item.carouselFiles)&&item.carouselFiles.length)return item.carouselFiles;
+  return item.file?[item.file]:[];
 }
 
-function releaseUrl(id){
-  const url=objectUrls.get(id);
-  if(url){
-    URL.revokeObjectURL(url);
-    objectUrls.delete(id);
+function ensureCarouselFiles(item){
+  if(!Array.isArray(item.carouselFiles)||!item.carouselFiles.length){
+    item.carouselFiles=item.file?[item.file]:[];
+  }
+  return item.carouselFiles;
+}
+
+function urlForFile(item,index=0){
+  const files=mediaFiles(item);
+  const file=files[index]||files[0];
+  if(!file)return "";
+  const key=`${item.id}:${index}:${file.name||"file"}:${file.size||0}`;
+  if(!objectUrls.has(key))objectUrls.set(key,URL.createObjectURL(file));
+  return objectUrls.get(key);
+}
+
+function releaseUrls(id){
+  for(const [key,url] of [...objectUrls.entries()]){
+    if(key.startsWith(id+":")){
+      URL.revokeObjectURL(url);
+      objectUrls.delete(key);
+    }
   }
 }
 
 async function loadProject(){
   const all=await getAllPosts();
-  items=all.filter(x=>x.project===activeProject).sort((a,b)=>a.order-b.order);
+  items=all.filter(x=>x.project===activeProject).sort((a,b)=>(a.order||0)-(b.order||0));
   renderFullGrid();
 }
 
@@ -339,6 +467,7 @@ function renderProjects(){
     btn.textContent=name;
     btn.addEventListener("click",async()=>{
       if(name===activeProject)return;
+      closeViewer();
       activeProject=name;
       localStorage.setItem(ACTIVE_KEY,activeProject);
       editing=false;
@@ -350,16 +479,10 @@ function renderProjects(){
   });
 }
 
-function typeIcon(type){
-  if(type==="reel")return "▶";
-  return "";
-}
-
 function applyTypeIcon(icon,type){
   icon.className="type-icon";
   icon.textContent="";
   icon.innerHTML="";
-
   if(type==="reel"){
     icon.classList.add("reel-icon");
     icon.textContent="▶";
@@ -369,13 +492,22 @@ function applyTypeIcon(icon,type){
   }
 }
 
+function refreshCard(item){
+  const card=grid.querySelector(`[data-id="${item.id}"]`);
+  if(!card)return;
+  const img=card.querySelector("img");
+  releaseUrls(item.id);
+  img.src=urlForFile(item,0);
+  applyTypeIcon(card.querySelector(".type-icon"),item.type||"photo");
+}
+
 function makeCard(item){
   const card=document.createElement("div");
   card.className="card"+(editing?" editing":"");
   card.dataset.id=item.id;
 
   const img=document.createElement("img");
-  img.src=urlFor(item);
+  img.src=urlForFile(item,0);
   img.alt="Публикация";
 
   const icon=document.createElement("span");
@@ -395,16 +527,15 @@ function makeCard(item){
     await saveItems();
     setTimeout(()=>{
       card.remove();
-      releaseUrl(item.id);
+      releaseUrls(item.id);
       if(!items.length)renderFullGrid();
     },150);
   });
 
   card.addEventListener("click",()=>{
     if(editing)return;
-    if(dragState && dragState.justDragged)return;
-    selectedItemId=item.id;
-    typeModal.classList.add("open");
+    if(dragState&&dragState.justDragged)return;
+    openViewer(item.id);
   });
 
   setupHoldDrag(card,item);
@@ -424,34 +555,90 @@ function renderFullGrid(){
   items.forEach(item=>grid.appendChild(makeCard(item)));
 }
 
+/* ---------- V3.2: mobile hold-drag + edge auto-scroll ---------- */
+let autoScrollSpeed=0;
+let autoScrollRAF=null;
+let lastPointer={x:0,y:0};
+
+function reorderAtPoint(card,x,y){
+  const target=document.elementFromPoint(x,y);
+  const targetCard=target&&target.closest(".card");
+  if(!targetCard||targetCard===card||targetCard.parentElement!==grid)return;
+  const cards=[...grid.querySelectorAll(".card")];
+  const from=cards.indexOf(card);
+  const to=cards.indexOf(targetCard);
+  if(from<to)grid.insertBefore(card,targetCard.nextSibling);
+  else grid.insertBefore(card,targetCard);
+}
+
+function updateAutoScroll(y){
+  const edge=105;
+  const max=14;
+  if(y<edge){
+    autoScrollSpeed=-Math.max(3,Math.round(max*(1-y/edge)));
+  }else if(y>window.innerHeight-edge){
+    autoScrollSpeed=Math.max(3,Math.round(max*((y-(window.innerHeight-edge))/edge)));
+  }else{
+    autoScrollSpeed=0;
+  }
+}
+
+function autoScrollLoop(){
+  if(!dragState||!dragState.active){
+    autoScrollRAF=null;
+    return;
+  }
+  if(autoScrollSpeed!==0){
+    window.scrollBy(0,autoScrollSpeed);
+    reorderAtPoint(dragState.card,lastPointer.x,lastPointer.y);
+  }
+  autoScrollRAF=requestAnimationFrame(autoScrollLoop);
+}
+
+function stopAutoScroll(){
+  autoScrollSpeed=0;
+  if(autoScrollRAF){
+    cancelAnimationFrame(autoScrollRAF);
+    autoScrollRAF=null;
+  }
+}
+
 function setupHoldDrag(card,item){
   let timer=null;
   let startX=0,startY=0;
   let active=false;
   let cancelled=false;
+  let pointerId=null;
 
   card.addEventListener("pointerdown",(e)=>{
     if(editing||e.target.closest(".delete-btn"))return;
     if(e.pointerType==="mouse"&&e.button!==0)return;
 
+    pointerId=e.pointerId;
     startX=e.clientX;
     startY=e.clientY;
+    lastPointer={x:e.clientX,y:e.clientY};
     active=false;
     cancelled=false;
 
-    dragState={id:item.id,card,justDragged:false};
+    dragState={id:item.id,card,justDragged:false,active:false};
 
     timer=setTimeout(()=>{
-      if(cancelled)return;
+      if(cancelled||!dragState)return;
       active=true;
+      dragState.active=true;
       card.classList.add("drag-active");
-      try{card.setPointerCapture(e.pointerId)}catch{}
+      document.body.classList.add("dragging");
+      if(navigator.vibrate)navigator.vibrate(18);
+      try{card.setPointerCapture(pointerId)}catch{}
+      if(!autoScrollRAF)autoScrollRAF=requestAnimationFrame(autoScrollLoop);
     },260);
   });
 
   card.addEventListener("pointermove",(e)=>{
     if(!dragState||dragState.card!==card)return;
 
+    lastPointer={x:e.clientX,y:e.clientY};
     const dx=e.clientX-startX;
     const dy=e.clientY-startY;
     const dist=Math.hypot(dx,dy);
@@ -465,21 +652,14 @@ function setupHoldDrag(card,item){
     }
 
     e.preventDefault();
-
-    const target=document.elementFromPoint(e.clientX,e.clientY);
-    const targetCard=target&&target.closest(".card");
-    if(!targetCard||targetCard===card||targetCard.parentElement!==grid)return;
-
-    const cards=[...grid.querySelectorAll(".card")];
-    const from=cards.indexOf(card);
-    const to=cards.indexOf(targetCard);
-
-    if(from<to)grid.insertBefore(card,targetCard.nextSibling);
-    else grid.insertBefore(card,targetCard);
-  });
+    updateAutoScroll(e.clientY);
+    reorderAtPoint(card,e.clientX,e.clientY);
+  },{passive:false});
 
   const finish=async()=>{
     clearTimeout(timer);
+    stopAutoScroll();
+    document.body.classList.remove("dragging");
 
     if(active){
       card.classList.remove("drag-active");
@@ -487,7 +667,7 @@ function setupHoldDrag(card,item){
       items.sort((a,b)=>ids.indexOf(a.id)-ids.indexOf(b.id));
       if(dragState)dragState.justDragged=true;
       await saveItems();
-      setTimeout(()=>{dragState=null},120);
+      setTimeout(()=>{dragState=null},180);
     }else{
       dragState=null;
     }
@@ -500,6 +680,175 @@ function setupHoldDrag(card,item){
   card.addEventListener("pointercancel",finish);
 }
 
+/* ---------- V3.2: publication viewer + real carousel ---------- */
+function selectedItem(){
+  return items.find(x=>x.id===selectedItemId);
+}
+
+function openViewer(id){
+  selectedItemId=id;
+  viewerIndex=0;
+  renderViewer();
+  viewerModal.classList.add("open");
+}
+
+function closeViewer(){
+  viewerModal.classList.remove("open");
+  selectedItemId=null;
+  viewerIndex=0;
+  carouselInput.value="";
+}
+
+function renderViewer(){
+  const item=selectedItem();
+  if(!item)return closeViewer();
+
+  const files=mediaFiles(item);
+  if(!files.length)return closeViewer();
+  viewerIndex=Math.max(0,Math.min(viewerIndex,files.length-1));
+
+  viewerImage.src=urlForFile(item,viewerIndex);
+  const isMulti=item.type==="carousel"&&files.length>1;
+  viewerCounter.textContent=item.type==="carousel"?`${viewerIndex+1} / ${files.length}`:"";
+  viewerCounter.style.display=item.type==="carousel"?"block":"none";
+  viewerPrev.classList.toggle("show",isMulti&&viewerIndex>0);
+  viewerNext.classList.toggle("show",isMulti&&viewerIndex<files.length-1);
+
+  document.querySelectorAll(".viewer-type").forEach(btn=>{
+    btn.classList.toggle("active",btn.dataset.type===(item.type||"photo"));
+  });
+
+  const carousel=item.type==="carousel";
+  carouselTools.classList.toggle("show",carousel);
+  if(carousel)renderCarouselStrip(item);
+}
+
+function renderCarouselStrip(item){
+  const files=ensureCarouselFiles(item);
+  carouselStrip.innerHTML="";
+  files.forEach((file,index)=>{
+    const thumb=document.createElement("div");
+    thumb.className="carousel-thumb"+(index===viewerIndex?" active":"");
+
+    const img=document.createElement("img");
+    img.src=urlForFile(item,index);
+    img.alt=`Фото ${index+1}`;
+    img.addEventListener("click",()=>{
+      viewerIndex=index;
+      renderViewer();
+    });
+
+    const num=document.createElement("span");
+    num.className="carousel-number";
+    num.textContent=index+1;
+
+    const moves=document.createElement("div");
+    moves.className="carousel-move";
+
+    const left=document.createElement("button");
+    left.textContent="‹";
+    left.disabled=index===0;
+    left.style.opacity=index===0?".35":"1";
+    left.addEventListener("click",async(e)=>{
+      e.stopPropagation();
+      if(index===0)return;
+      await moveCarouselImage(item,index,index-1);
+    });
+
+    const right=document.createElement("button");
+    right.textContent="›";
+    right.disabled=index===files.length-1;
+    right.style.opacity=index===files.length-1?".35":"1";
+    right.addEventListener("click",async(e)=>{
+      e.stopPropagation();
+      if(index===files.length-1)return;
+      await moveCarouselImage(item,index,index+1);
+    });
+
+    moves.append(left,right);
+    thumb.append(img,num,moves);
+    carouselStrip.appendChild(thumb);
+  });
+}
+
+async function moveCarouselImage(item,from,to){
+  const files=ensureCarouselFiles(item);
+  if(to<0||to>=files.length)return;
+  const [moved]=files.splice(from,1);
+  files.splice(to,0,moved);
+  item.file=files[0];
+  viewerIndex=to;
+  releaseUrls(item.id);
+  await saveItems();
+  refreshCard(item);
+  renderViewer();
+}
+
+viewerPrev.addEventListener("click",()=>{
+  if(viewerIndex>0){viewerIndex--;renderViewer();}
+});
+viewerNext.addEventListener("click",()=>{
+  const item=selectedItem();
+  if(item&&viewerIndex<mediaFiles(item).length-1){viewerIndex++;renderViewer();}
+});
+
+let swipeStartX=null;
+let swipeStartY=null;
+viewerImage.addEventListener("pointerdown",(e)=>{
+  swipeStartX=e.clientX;
+  swipeStartY=e.clientY;
+});
+viewerImage.addEventListener("pointerup",(e)=>{
+  if(swipeStartX===null)return;
+  const dx=e.clientX-swipeStartX;
+  const dy=e.clientY-swipeStartY;
+  swipeStartX=null;swipeStartY=null;
+  if(Math.abs(dx)<45||Math.abs(dx)<Math.abs(dy))return;
+  const item=selectedItem();
+  if(!item||item.type!=="carousel")return;
+  const count=mediaFiles(item).length;
+  if(dx<0&&viewerIndex<count-1)viewerIndex++;
+  if(dx>0&&viewerIndex>0)viewerIndex--;
+  renderViewer();
+});
+
+document.querySelectorAll(".viewer-type").forEach(btn=>{
+  btn.addEventListener("click",async()=>{
+    const item=selectedItem();
+    if(!item)return;
+    const newType=btn.dataset.type;
+    item.type=newType;
+    if(newType==="carousel"){
+      ensureCarouselFiles(item);
+    }
+    await saveItems();
+    refreshCard(item);
+    renderViewer();
+  });
+});
+
+carouselInput.addEventListener("change",async(e)=>{
+  const item=selectedItem();
+  const files=[...e.target.files];
+  if(!item||!files.length)return;
+  item.type="carousel";
+  const list=ensureCarouselFiles(item);
+  list.push(...files);
+  item.file=list[0];
+  releaseUrls(item.id);
+  await saveItems();
+  refreshCard(item);
+  viewerIndex=Math.max(0,list.length-files.length);
+  renderViewer();
+  carouselInput.value="";
+});
+
+document.getElementById("viewerClose").addEventListener("click",closeViewer);
+viewerModal.addEventListener("click",(e)=>{
+  if(e.target===viewerModal)closeViewer();
+});
+
+/* ---------- Main upload ---------- */
 fileInput.addEventListener("change",async(e)=>{
   const files=[...e.target.files];
   if(!files.length)return;
@@ -534,6 +883,7 @@ document.getElementById("editModeBtn").addEventListener("click",()=>{
   editing=!editing;
   document.getElementById("editModeBtn").textContent=editing?"Готово":"Удалить фото";
   menu.classList.remove("open");
+  closeViewer();
   grid.querySelectorAll(".card").forEach(card=>card.classList.toggle("editing",editing));
 });
 
@@ -547,38 +897,12 @@ document.getElementById("clearBtn").addEventListener("click",async()=>{
 
   for(const item of current){
     await deleteFromDB(item.id);
-    releaseUrl(item.id);
+    releaseUrls(item.id);
   }
 
   items=[];
   setTimeout(()=>renderFullGrid(),150);
   statusEl.textContent="Сохранено";
-});
-
-document.querySelectorAll(".type-choice").forEach(btn=>{
-  btn.addEventListener("click",async()=>{
-    const item=items.find(x=>x.id===selectedItemId);
-    if(item){
-      item.type=btn.dataset.type;
-      const card=grid.querySelector(`[data-id="${item.id}"]`);
-      if(card)applyTypeIcon(card.querySelector(".type-icon"),item.type);
-      await saveItems();
-    }
-    typeModal.classList.remove("open");
-    selectedItemId=null;
-  });
-});
-
-document.getElementById("modalCancel").addEventListener("click",()=>{
-  typeModal.classList.remove("open");
-  selectedItemId=null;
-});
-
-typeModal.addEventListener("click",(e)=>{
-  if(e.target===typeModal){
-    typeModal.classList.remove("open");
-    selectedItemId=null;
-  }
 });
 
 renderProjects();
