@@ -95,12 +95,20 @@ input[type=file]{display:none}
 .card{
   position:relative;aspect-ratio:3/4;overflow:hidden;background:var(--soft);
   border-radius:0;user-select:none;-webkit-user-select:none;
-  touch-action:pan-y;transform:translateZ(0);
+  touch-action:auto;transform:translateZ(0);
   transition:opacity .15s ease,transform .15s ease
 }
 .card.drag-active{
-  z-index:10;opacity:.84;transform:scale(.97);
-  box-shadow:0 8px 24px rgba(0,0,0,.25)
+  z-index:10;opacity:.34;transform:scale(.98);
+}
+.drag-ghost{
+  position:fixed;z-index:9999;pointer-events:none;
+  overflow:hidden;border-radius:0;background:var(--soft);
+  box-shadow:0 12px 32px rgba(0,0,0,.42);
+  transform:scale(1.03);
+}
+.drag-ghost img{
+  width:100%;height:100%;object-fit:cover;display:block
 }
 .card.removing{opacity:0;transform:scale(.96)}
 .card img{
@@ -170,7 +178,7 @@ input[type=file]{display:none}
 .cancel{width:100%;margin-top:9px}
 @media(min-width:620px){.app{padding-top:28px}.panel{padding:18px}.grid{gap:3px}}
 
-/* V3.2 — viewer, carousel editor and mobile drag auto-scroll */
+/* V3.3 — viewer, carousel editor and mobile drag fixes */
 body.dragging{overscroll-behavior:none}
 .viewer-backdrop{
   display:none;position:fixed;inset:0;background:rgba(0,0,0,.72);
@@ -216,17 +224,23 @@ body.dragging{overscroll-behavior:none}
 .viewer-prev{left:8px}.viewer-next{right:8px}
 .viewer-section{margin-top:14px}
 .viewer-label{font-size:12px;color:var(--muted);margin:0 0 8px}
-.viewer-types{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
-.viewer-type{
-  border:1px solid var(--line);background:var(--soft);color:var(--text);
-  border-radius:12px;padding:11px 6px;font-weight:750;font-size:13px
+.viewer-types{
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;
+  padding:4px;background:var(--bg);border:1px solid var(--line);
+  border-radius:14px
 }
-.viewer-type.active{background:var(--text);color:var(--bg);border-color:var(--text)}
+.viewer-type{
+  min-width:0;height:42px;border:0;background:transparent;color:var(--text);
+  border-radius:10px;padding:0 6px;font-weight:800;font-size:13px
+}
+.viewer-type.active{background:var(--text);color:var(--bg)}
 .carousel-tools{display:none;margin-top:12px}
 .carousel-tools.show{display:block}
 .carousel-add{
-  width:100%;border:1px solid var(--line);background:var(--soft);color:var(--text);
-  border-radius:13px;padding:12px;font-weight:800
+  box-sizing:border-box;display:flex;width:100%;min-height:44px;
+  align-items:center;justify-content:center;text-align:center;
+  border:1px solid var(--line);background:var(--soft);color:var(--text);
+  border-radius:12px;padding:10px 12px;font-weight:800;font-size:13px
 }
 .carousel-strip{
   display:flex;gap:8px;overflow-x:auto;padding:10px 1px 3px;
@@ -521,20 +535,25 @@ function makeCard(item){
     e.stopPropagation();
     const idx=items.findIndex(x=>x.id===item.id);
     if(idx<0)return;
-    card.classList.add("removing");
+
     items.splice(idx,1);
-    await deleteFromDB(item.id);
-    await saveItems();
-    setTimeout(()=>{
-      card.remove();
-      releaseUrls(item.id);
-      if(!items.length)renderFullGrid();
-    },150);
+    releaseUrls(item.id);
+
+    // Перестраиваем сетку сразу, чтобы не оставалось пустой ячейки.
+    renderFullGrid();
+
+    try{
+      await deleteFromDB(item.id);
+      await saveItems();
+      statusEl.textContent="Сохранено";
+    }catch(err){
+      console.error("Delete/save error",err);
+      statusEl.textContent="Ошибка сохранения";
+    }
   });
 
   card.addEventListener("click",()=>{
-    if(editing)return;
-    if(dragState&&dragState.justDragged)return;
+    if(editing||window.__feedboardJustDragged)return;
     openViewer(item.id);
   });
 
@@ -555,15 +574,19 @@ function renderFullGrid(){
   items.forEach(item=>grid.appendChild(makeCard(item)));
 }
 
-/* ---------- V3.2: mobile hold-drag + edge auto-scroll ---------- */
+/* ---------- V3.3: reliable iPhone/PWA hold-drag + edge auto-scroll ---------- */
 let autoScrollSpeed=0;
 let autoScrollRAF=null;
 let lastPointer={x:0,y:0};
 
 function reorderAtPoint(card,x,y){
+  const hidden=card.style.pointerEvents;
+  card.style.pointerEvents="none";
   const target=document.elementFromPoint(x,y);
+  card.style.pointerEvents=hidden;
   const targetCard=target&&target.closest(".card");
   if(!targetCard||targetCard===card||targetCard.parentElement!==grid)return;
+
   const cards=[...grid.querySelectorAll(".card")];
   const from=cards.indexOf(card);
   const to=cards.indexOf(targetCard);
@@ -572,12 +595,12 @@ function reorderAtPoint(card,x,y){
 }
 
 function updateAutoScroll(y){
-  const edge=105;
-  const max=14;
+  const edge=Math.min(125,window.innerHeight*.18);
+  const max=16;
   if(y<edge){
-    autoScrollSpeed=-Math.max(3,Math.round(max*(1-y/edge)));
+    autoScrollSpeed=-Math.max(4,Math.round(max*(1-y/edge)));
   }else if(y>window.innerHeight-edge){
-    autoScrollSpeed=Math.max(3,Math.round(max*((y-(window.innerHeight-edge))/edge)));
+    autoScrollSpeed=Math.max(4,Math.round(max*((y-(window.innerHeight-edge))/edge)));
   }else{
     autoScrollSpeed=0;
   }
@@ -588,7 +611,7 @@ function autoScrollLoop(){
     autoScrollRAF=null;
     return;
   }
-  if(autoScrollSpeed!==0){
+  if(autoScrollSpeed){
     window.scrollBy(0,autoScrollSpeed);
     reorderAtPoint(dragState.card,lastPointer.x,lastPointer.y);
   }
@@ -603,84 +626,152 @@ function stopAutoScroll(){
   }
 }
 
+function makeDragGhost(card,x,y){
+  const rect=card.getBoundingClientRect();
+  const ghost=card.cloneNode(true);
+  ghost.className="drag-ghost";
+  ghost.querySelectorAll(".delete-btn").forEach(x=>x.remove());
+  ghost.style.width=rect.width+"px";
+  ghost.style.height=rect.height+"px";
+  ghost.style.left=(x-rect.width/2)+"px";
+  ghost.style.top=(y-rect.height/2)+"px";
+  document.body.appendChild(ghost);
+  return {ghost,width:rect.width,height:rect.height};
+}
+
+function moveGhost(x,y){
+  if(!dragState||!dragState.ghost)return;
+  dragState.ghost.style.left=(x-dragState.ghostW/2)+"px";
+  dragState.ghost.style.top=(y-dragState.ghostH/2)+"px";
+}
+
+async function finishDrag(){
+  if(!dragState)return;
+
+  clearTimeout(dragState.timer);
+  stopAutoScroll();
+  document.body.classList.remove("dragging");
+
+  if(dragState.active){
+    dragState.card.classList.remove("drag-active");
+    if(dragState.ghost)dragState.ghost.remove();
+
+    const ids=[...grid.querySelectorAll(".card")].map(el=>el.dataset.id);
+    items.sort((a,b)=>ids.indexOf(a.id)-ids.indexOf(b.id));
+
+    const wasDragged=dragState.moved;
+    dragState=null;
+
+    try{await saveItems()}catch(err){console.error(err)}
+    if(wasDragged){
+      window.__feedboardJustDragged=true;
+      setTimeout(()=>window.__feedboardJustDragged=false,220);
+    }
+  }else{
+    dragState=null;
+  }
+}
+
 function setupHoldDrag(card,item){
-  let timer=null;
-  let startX=0,startY=0;
-  let active=false;
-  let cancelled=false;
-  let pointerId=null;
+  // iPhone / PWA: use Touch Events directly. Pointer Events can hand the gesture
+  // to page scrolling before the long-press becomes a drag.
+  card.addEventListener("touchstart",(e)=>{
+    if(editing||e.target.closest(".delete-btn")||e.touches.length!==1)return;
 
-  card.addEventListener("pointerdown",(e)=>{
-    if(editing||e.target.closest(".delete-btn"))return;
-    if(e.pointerType==="mouse"&&e.button!==0)return;
+    const t=e.touches[0];
+    const state={
+      id:item.id,card,active:false,moved:false,
+      startX:t.clientX,startY:t.clientY,
+      lastX:t.clientX,lastY:t.clientY,
+      ghost:null,ghostW:0,ghostH:0,timer:null
+    };
+    dragState=state;
 
-    pointerId=e.pointerId;
-    startX=e.clientX;
-    startY=e.clientY;
-    lastPointer={x:e.clientX,y:e.clientY};
-    active=false;
-    cancelled=false;
-
-    dragState={id:item.id,card,justDragged:false,active:false};
-
-    timer=setTimeout(()=>{
-      if(cancelled||!dragState)return;
-      active=true;
-      dragState.active=true;
+    state.timer=setTimeout(()=>{
+      if(dragState!==state)return;
+      state.active=true;
+      const g=makeDragGhost(card,state.lastX,state.lastY);
+      state.ghost=g.ghost;state.ghostW=g.width;state.ghostH=g.height;
       card.classList.add("drag-active");
       document.body.classList.add("dragging");
       if(navigator.vibrate)navigator.vibrate(18);
-      try{card.setPointerCapture(pointerId)}catch{}
+      lastPointer={x:state.lastX,y:state.lastY};
+      updateAutoScroll(state.lastY);
       if(!autoScrollRAF)autoScrollRAF=requestAnimationFrame(autoScrollLoop);
-    },260);
-  });
+    },320);
+  },{passive:true});
 
-  card.addEventListener("pointermove",(e)=>{
-    if(!dragState||dragState.card!==card)return;
+  card.addEventListener("touchmove",(e)=>{
+    if(!dragState||dragState.card!==card||e.touches.length!==1)return;
+    const t=e.touches[0];
+    const state=dragState;
+    state.lastX=t.clientX;state.lastY=t.clientY;
 
-    lastPointer={x:e.clientX,y:e.clientY};
-    const dx=e.clientX-startX;
-    const dy=e.clientY-startY;
-    const dist=Math.hypot(dx,dy);
-
-    if(!active){
-      if(dist>12){
-        cancelled=true;
-        clearTimeout(timer);
+    if(!state.active){
+      const dist=Math.hypot(t.clientX-state.startX,t.clientY-state.startY);
+      // A normal swipe remains ordinary page scrolling.
+      if(dist>10){
+        clearTimeout(state.timer);
+        dragState=null;
       }
       return;
     }
 
+    // Once long-press has activated drag, stop page scrolling.
     e.preventDefault();
-    updateAutoScroll(e.clientY);
-    reorderAtPoint(card,e.clientX,e.clientY);
+    state.moved=true;
+    lastPointer={x:t.clientX,y:t.clientY};
+    moveGhost(t.clientX,t.clientY);
+    updateAutoScroll(t.clientY);
+    reorderAtPoint(card,t.clientX,t.clientY);
   },{passive:false});
 
-  const finish=async()=>{
-    clearTimeout(timer);
-    stopAutoScroll();
-    document.body.classList.remove("dragging");
+  card.addEventListener("touchend",()=>finishDrag(),{passive:true});
+  card.addEventListener("touchcancel",()=>finishDrag(),{passive:true});
 
-    if(active){
-      card.classList.remove("drag-active");
-      const ids=[...grid.querySelectorAll(".card")].map(el=>el.dataset.id);
-      items.sort((a,b)=>ids.indexOf(a.id)-ids.indexOf(b.id));
-      if(dragState)dragState.justDragged=true;
-      await saveItems();
-      setTimeout(()=>{dragState=null},180);
-    }else{
-      dragState=null;
-    }
+  // Desktop / trackpad fallback.
+  card.addEventListener("pointerdown",(e)=>{
+    if(e.pointerType==="touch")return;
+    if(editing||e.target.closest(".delete-btn")||e.button!==0)return;
 
-    active=false;
-    cancelled=false;
-  };
+    const state={
+      id:item.id,card,active:false,moved:false,
+      startX:e.clientX,startY:e.clientY,lastX:e.clientX,lastY:e.clientY,
+      ghost:null,ghostW:0,ghostH:0,timer:null
+    };
+    dragState=state;
+    state.timer=setTimeout(()=>{
+      if(dragState!==state)return;
+      state.active=true;
+      const g=makeDragGhost(card,state.lastX,state.lastY);
+      state.ghost=g.ghost;state.ghostW=g.width;state.ghostH=g.height;
+      card.classList.add("drag-active");
+      document.body.classList.add("dragging");
+      try{card.setPointerCapture(e.pointerId)}catch{}
+    },260);
+  });
 
-  card.addEventListener("pointerup",finish);
-  card.addEventListener("pointercancel",finish);
+  card.addEventListener("pointermove",(e)=>{
+    if(e.pointerType==="touch"||!dragState||dragState.card!==card||!dragState.active)return;
+    e.preventDefault();
+    dragState.moved=true;
+    dragState.lastX=e.clientX;dragState.lastY=e.clientY;
+    lastPointer={x:e.clientX,y:e.clientY};
+    moveGhost(e.clientX,e.clientY);
+    updateAutoScroll(e.clientY);
+    reorderAtPoint(card,e.clientX,e.clientY);
+    if(!autoScrollRAF)autoScrollRAF=requestAnimationFrame(autoScrollLoop);
+  });
+
+  card.addEventListener("pointerup",(e)=>{
+    if(e.pointerType!=="touch")finishDrag();
+  });
+  card.addEventListener("pointercancel",(e)=>{
+    if(e.pointerType!=="touch")finishDrag();
+  });
 }
 
-/* ---------- V3.2: publication viewer + real carousel ---------- */
+/* ---------- V3.3: publication viewer + real carousel ---------- */
 function selectedItem(){
   return items.find(x=>x.id===selectedItemId);
 }
@@ -813,17 +904,31 @@ viewerImage.addEventListener("pointerup",(e)=>{
 });
 
 document.querySelectorAll(".viewer-type").forEach(btn=>{
-  btn.addEventListener("click",async()=>{
+  btn.addEventListener("click",async(e)=>{
+    e.preventDefault();
+    e.stopPropagation();
+
     const item=selectedItem();
     if(!item)return;
+
     const newType=btn.dataset.type;
     item.type=newType;
+
     if(newType==="carousel"){
       ensureCarouselFiles(item);
     }
-    await saveItems();
+
+    // Сначала обновляем интерфейс — кнопка и значок меняются сразу.
     refreshCard(item);
     renderViewer();
+
+    try{
+      await saveItems();
+      statusEl.textContent="Сохранено";
+    }catch(err){
+      console.error("Type save error",err);
+      statusEl.textContent="Ошибка сохранения";
+    }
   });
 });
 
