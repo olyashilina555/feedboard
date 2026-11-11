@@ -279,6 +279,16 @@ body.dragging{overscroll-behavior:none}
 }
 .carousel-move button:active{transform:scale(.94)}
 
+
+#message{position:fixed;left:14px;right:14px;bottom:calc(14px + env(safe-area-inset-bottom));z-index:200;max-width:730px;margin:auto;padding:12px 16px;border:1px solid var(--line);border-radius:14px;background:var(--panel);box-shadow:0 4px 24px #0003;font-size:13px;line-height:1.5;color:var(--danger)}#message:empty{display:none}
+#doneBtn{margin:0 0 12px}.danger{color:var(--danger)}
+.viewer-actions{display:flex;gap:8px}.viewer-actions button{font-size:13px}
+.viewer-stage{max-height:43dvh;aspect-ratio:auto;height:360px}.viewer-sheet{overscroll-behavior:contain}
+.viewer-head{position:sticky;top:0;background:var(--panel);z-index:5}
+#cropModal{z-index:120}#cropFrame{position:relative;aspect-ratio:3/4;width:min(240px,65vw);margin:14px auto;overflow:hidden;background:var(--soft);touch-action:none}
+#cropFrame img{position:absolute;max-width:none;user-select:none;pointer-events:none}
+#cropZoom{width:100%;min-height:40px}button:disabled{opacity:.5;cursor:wait}body.busy .file-button,body.busy .carousel-add{pointer-events:none;opacity:.5}
+.card img{position:absolute;max-width:none}.status{min-width:70px}.controls{flex-wrap:wrap}
 </style>
 </head>
 <body>
@@ -286,14 +296,14 @@ body.dragging{overscroll-behavior:none}
   <header class="header">
     <div>
       <h1>Feedboard</h1>
-      <p class="subtitle">Визуальный планировщик Instagram-ленты</p>
+      <p class="subtitle">Визуальный планировщик · V3.6</p>
     </div>
     <div class="header-actions">
       <button id="themeBtn" class="icon-btn" aria-label="Сменить тему">☾</button>
       <div class="menu-wrap">
         <button id="menuBtn" class="icon-btn" aria-label="Меню">•••</button>
         <div id="menu" class="menu">
-          <button id="editModeBtn">Удалить фото</button>
+          <button id="exportBtn">Скачать резервную копию</button><button id="importBtn">Восстановить из копии</button><input id="backupInput" type="file" accept="application/json,.json"><button id="editModeBtn">Удалить несколько</button>
           <button id="clearBtn" class="danger">Очистить текущую ленту</button>
         </div>
       </div>
@@ -318,7 +328,7 @@ body.dragging{overscroll-behavior:none}
       Зажми публикацию и перетащи. Подведи к краю экрана — лента прокрутится сама. Обычный тап открывает публикацию.
     </p>
 
-    <div id="grid" class="grid"></div>
+    <button id="doneBtn" class="cancel" hidden>Готово</button><div id="message" role="status" aria-live="polite"></div><div id="grid" class="grid"></div>
 
     <p class="bottom-note">
       Все проекты и изображения хранятся только на этом устройстве и не отправляются на сервер.
@@ -329,7 +339,7 @@ body.dragging{overscroll-behavior:none}
 <div id="viewerModal" class="viewer-backdrop">
   <div class="viewer-sheet">
     <div class="viewer-head">
-      <h3 id="viewerTitle">Публикация</h3>
+      <h3 id="viewerTitle">Публикация</h3><span id="viewerStatus" class="status" aria-live="polite"></span>
       <button id="viewerClose" class="viewer-close" aria-label="Закрыть">×</button>
     </div>
 
@@ -349,6 +359,7 @@ body.dragging{overscroll-behavior:none}
       </div>
     </div>
 
+    <div class="viewer-section viewer-actions"><button id="cropBtn" class="cancel">Кадрировать обложку</button><button id="deletePostBtn" class="cancel danger">Удалить публикацию</button></div>
     <div id="carouselTools" class="carousel-tools">
       <input id="carouselInput" type="file" accept="image/*" multiple>
       <label class="carousel-add" for="carouselInput">+ Добавить фото в карусель</label>
@@ -358,6 +369,7 @@ body.dragging{overscroll-behavior:none}
   </div>
 </div>
 
+<div id="cropModal" class="viewer-backdrop" role="dialog" aria-modal="true" aria-label="Обложка в сетке"><div class="viewer-sheet"><h3>Обложка в сетке</h3><p class="viewer-note">Передвигай фото пальцем. Масштаб меняется ползунком. Исходное изображение остается без изменений.</p><div id="cropFrame"><img id="cropImage" alt="Обложка"></div><label>Масштаб <input id="cropZoom" type="range" min="1" max="3" step="0.01" value="1"></label><button id="cropSave" class="cancel">Сохранить обложку</button><button id="cropReset" class="cancel">По центру</button><button id="cropCancel" class="cancel">Отмена</button></div></div>
 <script>
 const DB_NAME="feedboard-v2-db";
 const STORE="posts";
@@ -367,6 +379,7 @@ const ACTIVE_KEY="feedboard-active-project";
 const THEME_KEY="feedboard-theme";
 
 let activeProject=localStorage.getItem(ACTIVE_KEY)||PROJECTS[0];
+if(!PROJECTS.includes(activeProject))activeProject=PROJECTS[0];
 let items=[];
 let editing=false;
 let selectedItemId=null;
@@ -424,45 +437,69 @@ async function getAllPosts(){
     const tx=db.transaction(STORE,"readonly");
     const req=tx.objectStore(STORE).getAll();
     req.onsuccess=()=>resolve(req.result||[]);
+    tx.oncomplete=()=>db.close();
+    tx.onabort=()=>{db.close();reject(tx.error)};
     req.onerror=()=>reject(req.error);
   });
 }
 
-async function saveItems(){
-  statusEl.textContent="Сохраняю…";
-  const db=await openDB();
-
-  await new Promise((resolve,reject)=>{
-    const tx=db.transaction(STORE,"readwrite");
-    const store=tx.objectStore(STORE);
-
-    try{
-      items.forEach((item,index)=>{
-        item.order=index;
-        item.project=activeProject;
-        store.put(item);
-      });
-    }catch(err){
-      reject(err);
-      return;
-    }
-
-    tx.oncomplete=resolve;
-    tx.onerror=()=>reject(tx.error||new Error("IndexedDB save failed"));
-    tx.onabort=()=>reject(tx.error||new Error("IndexedDB transaction aborted"));
-  });
-
-  statusEl.textContent="Сохранено";
+let busy=false;
+let committed=new Map();
+let baseline=[];
+const message=document.getElementById('message');
+new MutationObserver(()=>{document.getElementById('viewerStatus').textContent=statusEl.textContent}).observe(statusEl,{childList:true,characterData:true,subtree:true});
+function notice(text){message.textContent=text;}
+message.title='Нажми, чтобы закрыть';message.onclick=()=>notice('');
+function lock(value){
+  busy=value;document.body.classList.toggle('busy',value);
+  document.querySelectorAll('button,input[type=file]').forEach(b=>{b.disabled=value});
+  if(!value&&selectedItem())renderViewer();
 }
-
-async function deleteFromDB(id){
+function fail(err){
+  console.error(err);statusEl.textContent='Не сохранено';
+  notice(err.name==='QuotaExceededError'?'Недостаточно места. Скачай резервную копию и освободи место на устройстве.':(err.message||'Не удалось сохранить. Попробуй еще раз.'));
+}
+function cloneItems(list){return list.map(x=>({...x,carouselFiles:x.carouselFiles?[...x.carouselFiles]:undefined,crop:x.crop?{...x.crop}:undefined}));}
+function fingerprint(x){return JSON.stringify([x.project,x.order,x.type,x.crop,mediaFiles(x).map(f=>blobId(f))]);}
+const blobIds=new WeakMap();let nextBlobId=0;
+function blobId(blob){if(!blobIds.has(blob))blobIds.set(blob,++nextBlobId);return blobIds.get(blob);}
+function remember(){committed=new Map(items.map(x=>[x.id,fingerprint(x)]));baseline=items.map(x=>[x.id,x._fbRevision||0]);}
+async function writeChanges(list,deleted=[],expectedProject=null,expectedRows=null){
   const db=await openDB();
-  await new Promise((resolve,reject)=>{
-    const tx=db.transaction(STORE,"readwrite");
-    tx.objectStore(STORE).delete(id);
-    tx.oncomplete=resolve;
-    tx.onerror=()=>reject(tx.error);
-  });
+  try{await new Promise((resolve,reject)=>{
+    const tx=db.transaction(STORE,'readwrite');let problem=null;
+    tx.oncomplete=resolve;tx.onabort=()=>reject(problem||tx.error||new Error('Сохранение прервано'));tx.onerror=()=>{};
+    const store=tx.objectStore(STORE);
+    const write=()=>{try{deleted.forEach(id=>store.delete(id));list.forEach(x=>store.put(x));}catch(e){problem=e;tx.abort();}};
+    if(expectedProject){
+      const req=store.getAll();req.onsuccess=()=>{
+        const rows=req.result.filter(x=>x.project===expectedProject).map(x=>[x.id,x._fbRevision||0]);
+        const sorted=rows=>JSON.stringify([...rows].sort((a,b)=>a[0].localeCompare(b[0])));
+        if(sorted(rows)!==sorted(expectedRows)){
+          problem=new Error('Лента изменилась в другом окне. Закрой другие окна Feedboard и обнови страницу перед повтором.');tx.abort();return;
+        }write();
+      };
+    }else write();
+  });}finally{db.close();}
+}
+async function saveItems(deleted=[]){
+  const snapshot=cloneItems(items).map((x,i)=>({...x,order:i,project:activeProject}));
+  statusEl.textContent='Сохраняю…';
+  const changed=snapshot.filter(x=>committed.get(x.id)!==fingerprint(x));
+  changed.forEach(x=>x._fbRevision=(x._fbRevision||0)+1);
+  await writeChanges(changed,deleted,activeProject,baseline);
+  items=snapshot;remember();statusEl.textContent='Сохранено';
+}
+async function mutate(change){
+  if(busy||dragState)return false;
+  lock(true);notice('');const before=cloneItems(items);
+  try{const deleted=await change()||[];await saveItems(deleted);renderFullGrid();if(selectedItemId)renderViewer();return true;}
+  catch(err){items=before;renderFullGrid();if(selectedItemId)renderViewer();fail(err);return false;}
+  finally{lock(false);}
+}
+async function removePost(id){
+  const ok=await mutate(()=>{items=items.filter(x=>x.id!==id);return [id];});
+  if(ok){releaseUrls(id);if(selectedItemId===id)closeViewer();}
 }
 
 function mediaFiles(item){
@@ -481,7 +518,7 @@ function urlForFile(item,index=0){
   const files=mediaFiles(item);
   const file=files[index]||files[0];
   if(!file)return "";
-  const key=`${item.id}:${index}:${file.name||"file"}:${file.size||0}`;
+  const key=`${item.id}:${blobId(file)}`;
   if(!objectUrls.has(key))objectUrls.set(key,URL.createObjectURL(file));
   return objectUrls.get(key);
 }
@@ -497,27 +534,20 @@ function releaseUrls(id){
 
 async function loadProject(){
   const all=await getAllPosts();
-  items=all.filter(x=>x.project===activeProject).sort((a,b)=>(a.order||0)-(b.order||0));
-  renderFullGrid();
+  for(const url of objectUrls.values())URL.revokeObjectURL(url);objectUrls.clear();
+  items=all.filter(x=>x.project===activeProject).sort((a,b)=>(a.order??0)-(b.order??0)||a.id.localeCompare(b.id));
+  remember();renderFullGrid();
 }
-
 function renderProjects(){
-  projectsEl.innerHTML="";
+  projectsEl.innerHTML='';
   PROJECTS.forEach(name=>{
-    const btn=document.createElement("button");
-    btn.className="project-btn"+(name===activeProject?" active":"");
-    btn.textContent=name;
-    btn.addEventListener("click",async()=>{
-      if(name===activeProject)return;
-      closeViewer();
-      activeProject=name;
-      localStorage.setItem(ACTIVE_KEY,activeProject);
-      editing=false;
-      document.getElementById("editModeBtn").textContent="Удалить фото";
-      renderProjects();
-      await loadProject();
-    });
-    projectsEl.appendChild(btn);
+    const btn=document.createElement('button');btn.className='project-btn'+(name===activeProject?' active':'');btn.textContent=name;
+    btn.onclick=async()=>{
+      if(busy||dragState||name===activeProject)return;
+      lock(true);const previous=activeProject;
+      try{closeViewer();activeProject=name;await loadProject();localStorage.setItem(ACTIVE_KEY,name);editing=false;document.getElementById('doneBtn').hidden=true;renderProjects();}
+      catch(e){activeProject=previous;fail(e);}finally{lock(false);}
+    };projectsEl.appendChild(btn);
   });
 }
 
@@ -534,24 +564,6 @@ function applyTypeIcon(icon,type){
   }
 }
 
-function refreshCard(item){
-  const card=grid.querySelector(`[data-id="${item.id}"]`);
-  if(!card)return;
-  const img=card.querySelector("img");
-
-  // Only recreate the image URL when the actual cover/image list changed.
-  // Do not use this for a simple Photo/Carousel/Reel type switch.
-  releaseUrls(item.id);
-  img.src=urlForFile(item,0);
-  applyTypeIcon(card.querySelector(".type-icon"),item.type||"photo");
-}
-
-function refreshCardMeta(item){
-  const card=grid.querySelector(`[data-id="${item.id}"]`);
-  if(!card)return;
-  applyTypeIcon(card.querySelector(".type-icon"),item.type||"photo");
-}
-
 function makeCard(item){
   const card=document.createElement("div");
   card.className="card"+(editing?" editing":"");
@@ -560,6 +572,7 @@ function makeCard(item){
   const img=document.createElement("img");
   img.src=urlForFile(item,0);
   img.alt="Публикация";
+  img.onload=()=>paintCrop(img,card,item.crop);
 
   const icon=document.createElement("span");
   applyTypeIcon(icon,item.type||"photo");
@@ -568,29 +581,11 @@ function makeCard(item){
   del.className="delete-btn";
   del.textContent="×";
 
-  del.addEventListener("click",async(e)=>{
-    e.stopPropagation();
-    const idx=items.findIndex(x=>x.id===item.id);
-    if(idx<0)return;
-
-    items.splice(idx,1);
-    releaseUrls(item.id);
-
-    // Перестраиваем сетку сразу, чтобы не оставалось пустой ячейки.
-    renderFullGrid();
-
-    try{
-      await deleteFromDB(item.id);
-      await saveItems();
-      statusEl.textContent="Сохранено";
-    }catch(err){
-      console.error("Delete/save error",err);
-      statusEl.textContent="Ошибка сохранения";
-    }
-  });
+  del.setAttribute('aria-label','Удалить публикацию');
+  del.addEventListener('click',e=>{e.stopPropagation();removePost(item.id)});
 
   card.addEventListener("click",()=>{
-    if(editing||window.__feedboardJustDragged)return;
+    if(busy||editing||window.__feedboardJustDragged)return;
     openViewer(item.id);
   });
 
@@ -693,17 +688,11 @@ async function finishDrag(){
     dragState.card.classList.remove("drag-active");
     if(dragState.ghost)dragState.ghost.remove();
 
-    const ids=[...grid.querySelectorAll(".card")].map(el=>el.dataset.id);
-    items.sort((a,b)=>ids.indexOf(a.id)-ids.indexOf(b.id));
-
-    const wasDragged=dragState.moved;
+    const ids=[...grid.querySelectorAll('.card')].map(el=>el.dataset.id);
+    window.__feedboardJustDragged=true;
     dragState=null;
-
-    try{await saveItems()}catch(err){console.error(err)}
-    if(wasDragged){
-      window.__feedboardJustDragged=true;
-      setTimeout(()=>window.__feedboardJustDragged=false,220);
-    }
+    await mutate(()=>{items.sort((a,b)=>ids.indexOf(a.id)-ids.indexOf(b.id));});
+    setTimeout(()=>window.__feedboardJustDragged=false,300);
   }else{
     dragState=null;
   }
@@ -713,7 +702,7 @@ function setupHoldDrag(card,item){
   // iPhone / PWA: use Touch Events directly. Pointer Events can hand the gesture
   // to page scrolling before the long-press becomes a drag.
   card.addEventListener("touchstart",(e)=>{
-    if(editing||e.target.closest(".delete-btn")||e.touches.length!==1)return;
+    if(busy||editing||e.target.closest(".delete-btn")||e.touches.length!==1)return;
 
     const t=e.touches[0];
     const state={
@@ -769,7 +758,7 @@ function setupHoldDrag(card,item){
   // Desktop / trackpad fallback.
   card.addEventListener("pointerdown",(e)=>{
     if(e.pointerType==="touch")return;
-    if(editing||e.target.closest(".delete-btn")||e.button!==0)return;
+    if(busy||editing||e.target.closest(".delete-btn")||e.button!==0)return;
 
     const state={
       id:item.id,card,active:false,moved:false,
@@ -788,6 +777,7 @@ function setupHoldDrag(card,item){
     },260);
   });
 
+  card.addEventListener("pointerleave",()=>{if(dragState?.card===card&&!dragState.active){clearTimeout(dragState.timer);dragState=null;}});
   card.addEventListener("pointermove",(e)=>{
     if(e.pointerType==="touch"||!dragState||dragState.card!==card||!dragState.active)return;
     e.preventDefault();
@@ -836,6 +826,7 @@ function renderViewer(){
   viewerIndex=Math.max(0,Math.min(viewerIndex,files.length-1));
 
   viewerImage.src=urlForFile(item,viewerIndex);
+  if(item.type!=="carousel"){viewerIndex=0;viewerImage.src=urlForFile(item,0);}
   const isMulti=item.type==="carousel"&&files.length>1;
   viewerCounter.textContent=item.type==="carousel"?`${viewerIndex+1} / ${files.length}`:"";
   viewerCounter.style.display=item.type==="carousel"?"block":"none";
@@ -899,41 +890,13 @@ function renderCarouselStrip(item){
   });
 }
 
-let carouselSaveTimer=null;
-
-function scheduleCarouselSave(){
-  clearTimeout(carouselSaveTimer);
-  statusEl.textContent="Сохраняю…";
-  carouselSaveTimer=setTimeout(async()=>{
-    try{
-      await saveItems();
-      statusEl.textContent="Сохранено";
-    }catch(err){
-      console.error("Carousel save error",err);
-      statusEl.textContent="Ошибка сохранения";
-    }
-  },220);
-}
-
-function moveCarouselImage(item,from,to){
-  const files=ensureCarouselFiles(item);
-  if(to<0||to>=files.length||from===to)return;
-
-  const oldCover=files[0];
-  const [moved]=files.splice(from,1);
-  files.splice(to,0,moved);
-  item.file=files[0];
-  viewerIndex=to;
-
-  // UI changes instantly; persistence happens shortly after.
-  renderViewer();
-
-  if(oldCover!==files[0]){
-    refreshCard(item);
-    renderViewer();
-  }
-
-  scheduleCarouselSave();
+async function moveCarouselImage(item,from,to){
+  return mutate(()=>{
+    const current=items.find(x=>x.id===item.id);const files=ensureCarouselFiles(current);
+    if(to<0||to>=files.length||from===to)return;
+    const old=files[0];const [moved]=files.splice(from,1);files.splice(to,0,moved);current.file=files[0];
+    if(old!==files[0])delete current.crop;viewerIndex=to;
+  });
 }
 
 viewerPrev.addEventListener("click",()=>{
@@ -964,162 +927,53 @@ viewerImage.addEventListener("pointerup",(e)=>{
   renderViewer();
 });
 
-document.querySelectorAll(".viewer-type").forEach(btn=>{
-  btn.addEventListener("click",async(e)=>{
-    e.preventDefault();
-    e.stopPropagation();
+document.querySelectorAll('.viewer-type').forEach(btn=>{
+  btn.onclick=()=>mutate(()=>{const item=selectedItem();if(!item)return;item.type=btn.dataset.type;if(item.type==='carousel')ensureCarouselFiles(item);viewerIndex=0;});
+});
 
-    const item=selectedItem();
-    if(!item)return;
-
-    const previousType=item.type||"photo";
-    const newType=btn.dataset.type;
-    if(newType===previousType)return;
-
-    item.type=newType;
-
-    if(newType==="carousel"){
-      ensureCarouselFiles(item);
-    }
-
-    // IMPORTANT: switching the publication type must not revoke the image URL.
-    // Only update the badge/icon and the viewer controls.
-    refreshCardMeta(item);
-    renderViewer();
-
+async function prepareImages(files){
+  if(files.length>40)throw new Error('Добавляй не больше 40 фотографий за один раз.');
+  const out=[];
+  for(let i=0;i<files.length;i++){
+    const file=files[i];statusEl.textContent=`Фото ${i+1}/${files.length}`;
+    if(file.size>40*1024*1024)throw new Error('Фотография больше 40 МБ. Выбери уменьшенную копию.');
+    if(!file.type.startsWith('image/')||file.type==='image/svg+xml')throw new Error('Выбери фотографии JPEG, PNG или WebP. HEIC можно использовать, если его поддерживает браузер.');
+    const url=URL.createObjectURL(file);const img=new Image();
     try{
-      await saveItems();
-      statusEl.textContent="Сохранено";
-    }catch(err){
-      console.error("Type save error",err);
-
-      // Roll back the visual type if persistence failed.
-      item.type=previousType;
-      refreshCardMeta(item);
-      renderViewer();
-
-      // Keep the existing image intact and show a non-destructive warning.
-      statusEl.textContent="Не удалось сохранить тип";
-      setTimeout(()=>{
-        if(statusEl.textContent==="Не удалось сохранить тип"){
-          statusEl.textContent="";
-        }
-      },2500);
-    }
-  });
-});
-
-carouselInput.addEventListener("change",async(e)=>{
-  const item=selectedItem();
-  const files=[...e.target.files];
-  if(!item||!files.length)return;
-
-  const previousType=item.type||"photo";
-  const previousFiles=Array.isArray(item.carouselFiles)?[...item.carouselFiles]:null;
-  const previousFile=item.file;
-
-  item.type="carousel";
-  const list=ensureCarouselFiles(item);
-  list.push(...files);
-  item.file=list[0];
-  viewerIndex=Math.max(0,list.length-files.length);
-
-  // Show the new carousel immediately without invalidating the current image first.
-  refreshCardMeta(item);
-  renderViewer();
-
-  try{
-    await saveItems();
-    // Cover may have changed only if this was an unusual legacy item;
-    // refresh the card image after persistence succeeds.
-    refreshCard(item);
-    renderViewer();
-  }catch(err){
-    console.error("Carousel add save error",err);
-    item.type=previousType;
-    item.file=previousFile;
-    if(previousFiles) item.carouselFiles=previousFiles;
-    else delete item.carouselFiles;
-    viewerIndex=0;
-    refreshCardMeta(item);
-    renderViewer();
-    statusEl.textContent="Не удалось добавить фото";
-  }
-
-  carouselInput.value="";
-});
+      await new Promise((resolve,reject)=>{img.onload=resolve;img.onerror=()=>reject(new Error('Не удалось открыть фото. Попробуй сохранить его в JPEG.'));img.src=url;});
+      const scale=Math.min(1,2000/Math.max(img.naturalWidth,img.naturalHeight));
+      const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(img.naturalWidth*scale));canvas.height=Math.max(1,Math.round(img.naturalHeight*scale));
+      const ctx=canvas.getContext('2d');ctx.drawImage(img,0,0,canvas.width,canvas.height);
+      const type=file.type==='image/png'?'image/png':'image/jpeg';
+      const blob=await new Promise(r=>canvas.toBlob(r,type,.88));
+      if(!blob)throw new Error('Не удалось подготовить фотографию.');
+      out.push(new File([blob],file.name.replace(/\.[^.]+$/,'')+(type==='image/png'?'.png':'.jpg'),{type}));canvas.width=canvas.height=1;
+    }finally{URL.revokeObjectURL(url);}
+  }return out;
+}
+carouselInput.onchange=async e=>{
+  const files=[...e.target.files];const id=selectedItemId;e.target.value='';if(!files.length)return;
+  await mutate(async()=>{const processed=await prepareImages(files);const item=items.find(x=>x.id===id);if(!item)throw new Error('Публикация не найдена');
+    const list=ensureCarouselFiles(item);viewerIndex=list.length;list.push(...processed);item.file=list[0];item.type='carousel';});
+};
 
 document.getElementById("viewerClose").addEventListener("click",closeViewer);
 viewerModal.addEventListener("click",(e)=>{
   if(e.target===viewerModal)closeViewer();
 });
 
-/* ---------- Main upload ---------- */
-fileInput.addEventListener("change",async(e)=>{
-  const files=[...e.target.files];
-  if(!files.length)return;
-
-  const empty=grid.querySelector(".empty");
-  if(empty)empty.remove();
-
-  for(const file of files){
-    const item={
-      id:crypto.randomUUID(),
-      project:activeProject,
-      file,
-      type:"photo",
-      order:items.length
-    };
-    items.push(item);
-    grid.appendChild(makeCard(item));
-  }
-
-  await saveItems();
-  fileInput.value="";
-});
-
-
-/* ---------- V3.5: direct carousel creation ---------- */
-newCarouselInput.addEventListener("change",async(e)=>{
-  const files=[...e.target.files];
-  if(!files.length)return;
-
-  if(files.length<2){
-    statusEl.textContent="Для карусели выбери минимум 2 фото";
-    setTimeout(()=>{
-      if(statusEl.textContent==="Для карусели выбери минимум 2 фото")statusEl.textContent="";
-    },2200);
-    newCarouselInput.value="";
-    return;
-  }
-
-  const item={
-    id:crypto.randomUUID(),
-    project:activeProject,
-    file:files[0],
-    carouselFiles:files,
-    type:"carousel",
-    order:items.length
-  };
-
-  items.push(item);
-  const empty=grid.querySelector(".empty");
-  if(empty)empty.remove();
-  grid.appendChild(makeCard(item));
-
-  try{
-    await saveItems();
-    statusEl.textContent="Сохранено";
-  }catch(err){
-    console.error("Create carousel error",err);
-    items=items.filter(x=>x.id!==item.id);
-    releaseUrls(item.id);
-    renderFullGrid();
-    statusEl.textContent="Ошибка сохранения";
-  }
-
-  newCarouselInput.value="";
-});
+async function addPosts(input,carousel){
+  const files=[...input.files];input.value='';if(!files.length)return;
+  if(carousel&&files.length<2){notice('Для новой карусели выбери минимум два фото.');return;}
+  await mutate(async()=>{
+    const prepared=await prepareImages(files);
+    const make=file=>({id:crypto.randomUUID(),project:activeProject,file,type:'photo'});
+    const additions=carousel?[{...make(prepared[0]),type:'carousel',carouselFiles:prepared}]:prepared.map(make);
+    items=[...additions,...items];
+  });
+}
+fileInput.onchange=()=>addPosts(fileInput,false);
+newCarouselInput.onchange=()=>addPosts(newCarouselInput,true);
 
 document.getElementById("menuBtn").addEventListener("click",(e)=>{
   e.stopPropagation();
@@ -1128,40 +982,84 @@ document.getElementById("menuBtn").addEventListener("click",(e)=>{
 document.addEventListener("click",()=>menu.classList.remove("open"));
 menu.addEventListener("click",(e)=>e.stopPropagation());
 
-document.getElementById("editModeBtn").addEventListener("click",()=>{
-  editing=!editing;
-  document.getElementById("editModeBtn").textContent=editing?"Готово":"Удалить фото";
-  menu.classList.remove("open");
-  closeViewer();
-  grid.querySelectorAll(".card").forEach(card=>card.classList.toggle("editing",editing));
-});
-
-document.getElementById("clearBtn").addEventListener("click",async()=>{
-  menu.classList.remove("open");
-  if(!items.length)return;
-  if(!confirm(`Очистить ленту «${activeProject}»?`))return;
-
-  const current=[...items];
-  grid.querySelectorAll(".card").forEach(card=>card.classList.add("removing"));
-
-  for(const item of current){
-    await deleteFromDB(item.id);
-    releaseUrls(item.id);
-  }
-
-  items=[];
-  setTimeout(()=>renderFullGrid(),150);
-  statusEl.textContent="Сохранено";
-});
-
-renderProjects();
-loadProject();
-
-if("serviceWorker"in navigator){
-  window.addEventListener("load",()=>{
-    navigator.serviceWorker.register("./sw.js").catch(()=>{});
-  });
+function toggleEditing(value){
+  if(busy)return;editing=value;menu.classList.remove('open');closeViewer();document.getElementById('doneBtn').hidden=!value;renderFullGrid();
 }
+document.getElementById('editModeBtn').onclick=()=>toggleEditing(!editing);
+document.getElementById('doneBtn').onclick=()=>toggleEditing(false);
+document.getElementById('deletePostBtn').onclick=()=>removePost(selectedItemId);
+document.getElementById('clearBtn').onclick=()=>{
+  if(busy||!items.length||!confirm(`Удалить все публикации из «${activeProject}»? Сначала рекомендуем скачать резервную копию.`))return;
+  mutate(()=>{const ids=items.map(x=>x.id);items=[];return ids;});
+};
+
+/* Crop metadata only: the original stored image is never overwritten. */
+const cropModal=document.getElementById('cropModal'),cropImage=document.getElementById('cropImage'),cropFrame=document.getElementById('cropFrame'),cropZoom=document.getElementById('cropZoom');
+let cropDraft={z:1,x:.5,y:.5};let cropTarget=null;
+function paintCrop(img,frame,crop){
+  if(!img.naturalWidth)return;
+  const c=crop||{z:1,x:.5,y:.5};const w=frame.clientWidth,h=frame.clientHeight;
+  const scale=Math.max(w/img.naturalWidth,h/img.naturalHeight)*(c.z||1);
+  const iw=img.naturalWidth*scale,ih=img.naturalHeight*scale;
+  Object.assign(img.style,{width:iw+'px',height:ih+'px',left:(w-iw)*(c.x??.5)+'px',top:(h-ih)*(c.y??.5)+'px',objectFit:'fill'});
+}
+document.getElementById('cropBtn').onclick=()=>{
+  const item=selectedItem();if(!item||busy)return;cropTarget=item.id;cropDraft={z:1,x:.5,y:.5,...item.crop};cropZoom.value=cropDraft.z;cropModal.classList.add('open');cropImage.src=urlForFile(item,0);paintCrop(cropImage,cropFrame,cropDraft);
+};
+cropImage.onload=()=>paintCrop(cropImage,cropFrame,cropDraft);
+cropZoom.oninput=()=>{cropDraft.z=Number(cropZoom.value);paintCrop(cropImage,cropFrame,cropDraft)};
+let cropPointer=null;
+cropFrame.onpointerdown=e=>{cropPointer={x:e.clientX,y:e.clientY};cropFrame.setPointerCapture(e.pointerId)};
+cropFrame.onpointermove=e=>{
+  if(!cropPointer)return;const dx=e.clientX-cropPointer.x,dy=e.clientY-cropPointer.y;cropPointer={x:e.clientX,y:e.clientY};
+  const overflowX=parseFloat(cropImage.style.width)-cropFrame.clientWidth,overflowY=parseFloat(cropImage.style.height)-cropFrame.clientHeight;
+  if(overflowX>0)cropDraft.x=Math.max(0,Math.min(1,cropDraft.x-dx/overflowX));
+  if(overflowY>0)cropDraft.y=Math.max(0,Math.min(1,cropDraft.y-dy/overflowY));paintCrop(cropImage,cropFrame,cropDraft);
+};
+cropFrame.onpointerup=cropFrame.onpointercancel=()=>cropPointer=null;
+document.getElementById('cropReset').onclick=()=>{cropDraft={z:1,x:.5,y:.5};cropZoom.value=1;paintCrop(cropImage,cropFrame,cropDraft)};
+document.getElementById('cropCancel').onclick=()=>cropModal.classList.remove('open');
+document.getElementById('cropSave').onclick=async()=>{
+  if(await mutate(()=>{items.find(x=>x.id===cropTarget).crop={...cropDraft}}))cropModal.classList.remove('open');
+};
+window.addEventListener('resize',()=>{grid.querySelectorAll('.card').forEach(card=>{const item=items.find(x=>x.id===card.dataset.id);paintCrop(card.querySelector('img'),card,item?.crop)});paintCrop(cropImage,cropFrame,cropDraft)});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){cropModal.classList.remove('open');closeViewer()}});
+
+/* Versioned offline backup. Import validates completely before atomic replacement. */
+function readDataURL(blob){return new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=()=>reject(r.error);r.readAsDataURL(blob)})}
+function download(blob,name){const a=document.createElement('a'),url=URL.createObjectURL(blob);a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000)}
+document.getElementById('exportBtn').onclick=async()=>{
+  if(busy||dragState)return;lock(true);notice('');
+  try{const all=await getAllPosts(),posts=[];for(const item of all){const files=[];for(const file of mediaFiles(item))files.push({name:file.name||'photo',data:await readDataURL(file)});
+    posts.push({id:item.id,project:item.project,order:item.order,type:item.type,crop:item.crop,files});}
+    download(new Blob([JSON.stringify({format:'feedboard-backup',version:1,createdAt:new Date().toISOString(),posts})],{type:'application/json'}),'feedboard-backup-'+new Date().toISOString().slice(0,10)+'.json');
+    notice('Копия подготовлена. Сохрани файл в «Файлы» и проверь, что он появился.');
+  }catch(e){fail(e)}finally{lock(false)}
+};
+document.getElementById('importBtn').onclick=()=>document.getElementById('backupInput').click();
+document.getElementById('backupInput').onchange=async e=>{
+  const file=e.target.files[0];e.target.value='';if(!file||busy)return;lock(true);notice('');
+  try{
+    if(file.size>300*1024*1024)throw new Error('Копия больше 300 МБ. Не удалось открыть ее безопасно на этом устройстве.');
+    const data=JSON.parse(await file.text());if(data.format!=='feedboard-backup'||data.version!==1||!Array.isArray(data.posts))throw new Error('Это не резервная копия Feedboard V3.6.');
+    const posts=[],ids=new Set();
+    for(const p of data.posts){
+      if(typeof p.id!=='string'||!/^[a-zA-Z0-9_-]{1,100}$/.test(p.id)||ids.has(p.id)||!PROJECTS.includes(p.project)||!['photo','carousel','reel'].includes(p.type)||!Number.isInteger(p.order)||p.order<0||!Array.isArray(p.files)||!p.files.length)throw new Error('Копия повреждена: неверные данные публикации.');ids.add(p.id);
+      const files=[];for(const f of p.files){
+        if(typeof f.data!=='string'||!/^data:image\/(jpeg|png|webp|gif|heic|heif);base64,[A-Za-z0-9+/=]+$/.test(f.data))throw new Error('Копия содержит неподдерживаемый файл.');
+        const [head,body]=f.data.split(',');const bytes=Uint8Array.from(atob(body),c=>c.charCodeAt(0));files.push(new File([bytes],String(f.name||'photo'),{type:head.slice(5,head.indexOf(';'))}));
+      }
+      if(p.crop&&(![p.crop.x,p.crop.y,p.crop.z].every(Number.isFinite)||p.crop.x<0||p.crop.x>1||p.crop.y<0||p.crop.y>1||p.crop.z<1||p.crop.z>3))throw new Error('В копии повреждено кадрирование.');
+      posts.push({id:p.id,project:p.project,order:p.order,type:p.type,crop:p.crop,file:files[0],carouselFiles:files});
+    }
+    if(!confirm('Восстановление заменит все три проекта содержимым копии. Продолжить?'))return;
+    const old=await getAllPosts();await writeChanges(posts,old.map(x=>x.id));closeViewer();await loadProject();statusEl.textContent='Сохранено';notice('Все проекты восстановлены.');
+  }catch(e){fail(e)}finally{lock(false)}
+};
+window.addEventListener('beforeunload',e=>{if(busy){e.preventDefault();e.returnValue=''}});
+renderProjects();
+(async()=>{lock(true);try{await loadProject()}catch(e){fail(e)}finally{lock(false)}})();
+if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
 </script>
 </body>
 </html>
