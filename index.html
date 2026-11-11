@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#f7f7f5" id="themeColor">
+<meta name="theme-color" content="#F7F5F1" id="themeColor">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Feedboard">
@@ -280,23 +280,61 @@ body.dragging{overscroll-behavior:none}
 .carousel-move button:active{transform:scale(.94)}
 
 
-#message{position:fixed;left:14px;right:14px;bottom:calc(14px + env(safe-area-inset-bottom));z-index:200;max-width:730px;margin:auto;padding:12px 16px;border:1px solid var(--line);border-radius:14px;background:var(--panel);box-shadow:0 4px 24px #0003;font-size:13px;line-height:1.5;color:var(--danger)}#message:empty{display:none}
+#message{position:fixed;left:14px;right:14px;bottom:calc(14px + env(safe-area-inset-bottom));z-index:200;max-width:730px;margin:auto;padding:12px 16px;border:1px solid var(--line);border-radius:14px;background:var(--panel);box-shadow:0 4px 24px #0003;font-size:13px;line-height:1.5;color:var(--text);padding-right:48px}#message:empty{display:none}#message[data-kind="error"]{color:var(--danger)}.notice-close{position:absolute;right:8px;top:8px;width:32px;height:32px;border:0;border-radius:8px;background:var(--soft);color:var(--text);font-size:22px;line-height:1;cursor:pointer}#message a{color:var(--text)}
 #doneBtn{margin:0 0 12px}.danger{color:var(--danger)}
 .viewer-actions{display:flex;gap:8px}.viewer-actions button{font-size:13px}
-.viewer-stage{max-height:43dvh;aspect-ratio:auto;height:360px}.viewer-sheet{overscroll-behavior:contain}
+.viewer-stage{aspect-ratio:auto;height:min(360px,43dvh);min-height:0;display:block}.viewer-stage img{position:absolute;inset:0;width:100%;height:100%;min-width:0;min-height:0;object-fit:contain;object-position:center;transform:none}.viewer-sheet{overscroll-behavior:contain}
 .viewer-head{position:sticky;top:0;background:var(--panel);z-index:5}
 #cropModal{z-index:120}#cropFrame{position:relative;aspect-ratio:3/4;width:min(240px,65vw);margin:14px auto;overflow:hidden;background:var(--soft);touch-action:none}
 #cropFrame img{position:absolute;max-width:none;user-select:none;pointer-events:none}
 #cropZoom{width:100%;min-height:40px}button:disabled{opacity:.5;cursor:wait}body.busy .file-button,body.busy .carousel-add{pointer-events:none;opacity:.5}
 .card img{position:absolute;max-width:none}.status{min-width:70px}.controls{flex-wrap:wrap}
+
+/* V3.6.2 brand refresh: self-hosted fonts, no changes to media storage. */
+@font-face{font-family:Manrope;src:url('./assets/manrope-regular.ttf') format('truetype');font-weight:400 500;font-display:swap}
+@font-face{font-family:Manrope;src:url('./assets/manrope-bold.ttf') format('truetype');font-weight:600 800;font-display:swap}
+:root{--bg:#F7F5F1;--panel:#FFFFFF;--text:#202124;--muted:#706C68;--line:#E6E2DB;--soft:#F3EFE9;--accent:#E86F3A;--accent-soft:#FBE8DC;--accent-ink:#9C3C15}
+html[data-theme="dark"]{--bg:#19191B;--panel:#202124;--text:#F7F5F1;--muted:#B7B2AB;--line:#3A393B;--soft:#2C2B2E;--accent:#E86F3A;--accent-soft:#403029;--accent-ink:#FFAD83;--danger:#FF8F85}
+body{font-family:Manrope,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.app{max-width:720px;padding:26px 18px 32px}
+.header{align-items:center;margin-bottom:26px;gap:8px}
+h1{display:flex;align-items:center;gap:9px;font-size:29px;font-weight:800;letter-spacing:-1.3px}
+.brand-mark{width:30px;height:34px;color:var(--accent);flex:none}
+.subtitle{font-size:11px;letter-spacing:.1px;margin-top:8px}
+.header-actions{gap:6px}.icon-btn{width:40px;height:40px;border-radius:13px;background:transparent;font-weight:500}
+.panel{background:transparent;border:0;padding:0;border-radius:0}
+.projects{gap:6px;padding:5px;background:var(--soft);border-radius:16px;margin-bottom:20px}
+.project-btn{flex:1;border:0;border-radius:12px;background:transparent;padding:11px 8px;font-size:12px;font-weight:700}
+.project-btn.active{background:var(--panel);color:var(--text);box-shadow:0 2px 7px #0000000b}
+.controls{margin-bottom:10px;gap:9px}.create-actions{width:100%;display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.file-button{display:flex;justify-content:center;min-height:46px;padding:12px 6px;border-radius:14px;background:var(--accent);color:#202124;font-size:12px;font-weight:800}
+.carousel-main-button{background:var(--accent-soft);color:var(--accent-ink);border:1px solid transparent}
+.status{font-size:10px;min-height:16px}.hint{font-size:11px;line-height:1.6;margin:2px 0 16px;max-width:540px}
+.grid{gap:4px;background:transparent;min-height:0}.card{border-radius:7px}.drag-ghost{border-radius:7px}
+.bottom-note{max-width:330px;margin:20px auto 0;font-size:10px;line-height:1.6}
+.viewer-sheet,.sheet{border:1px solid var(--line);box-shadow:0 -12px 60px #00000012}
+.viewer-stage{border-radius:12px;background:var(--bg)}
+.viewer-type.active{background:var(--accent-soft);color:var(--accent-ink)}
+.viewer-close,.cancel,.carousel-add{border-radius:13px}
+#cropSave{background:var(--accent);color:#202124;border-color:transparent}#cropZoom{accent-color:var(--accent)}
+.carousel-thumb.active{border-color:var(--accent)}
+#message{border-left:3px solid var(--accent);border-radius:16px;padding:16px 48px 16px 16px}
+#message[data-kind="error"]{border-left-color:var(--danger)}
+#message a{color:var(--accent-ink)}
+.empty{display:flex;flex-direction:column;gap:10px;min-height:300px;border:1px dashed var(--line);border-radius:18px;background:var(--panel);font-size:12px}
+.empty strong{color:var(--text);font-size:17px}.empty-mascot{width:80px;height:84px;margin-bottom:8px}
+button:focus-visible,label:focus-within{outline:2px solid var(--accent);outline-offset:3px}
+@media(max-width:359px){.app{padding-left:12px;padding-right:12px}h1{font-size:25px;gap:6px}.brand-mark{width:25px}.subtitle{font-size:10px}.icon-btn{width:35px;height:38px}.file-button{font-size:11px}}
+@media(min-width:620px){.app{padding-top:36px}.panel{padding:0}.grid{gap:5px}.header{margin-bottom:30px}h1{font-size:34px}.subtitle{font-size:12px}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important}}
 </style>
 </head>
 <body>
 <main class="app">
   <header class="header">
     <div>
-      <h1>Feedboard</h1>
-      <p class="subtitle">Визуальный планировщик · V3.6.1</p>
+      <h1><svg class="brand-mark" viewBox="0 0 48 52" aria-hidden="true"><g fill="currentColor" transform="skewX(-12)"><rect x="13" y="3" width="34" height="14" rx="5"/><rect x="13" y="20" width="15" height="13" rx="4"/><rect x="31" y="20" width="13" height="13" rx="4"/><rect x="13" y="36" width="15" height="13" rx="4"/></g></svg><span>feedboard</span></h1>
+      <p class="subtitle">Визуальный планировщик · V3.6.2</p>
     </div>
     <div class="header-actions">
       <button id="themeBtn" class="icon-btn" aria-label="Сменить тему">☾</button>
@@ -409,8 +447,8 @@ function applyTheme(theme){
   document.documentElement.dataset.theme=theme;
   localStorage.setItem(THEME_KEY,theme);
   const dark=theme==="dark";
-  themeBtn.textContent=dark?"☀":"☾";
-  themeColor.setAttribute("content",dark?"#0b0f14":"#f7f7f5");
+  themeBtn.innerHTML=dark?'<svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.4 1.4m11.2 11.2L19 19M5 19l1.4-1.4M17.6 6.4L19 5"/></svg>':'<svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M20.5 14a9 9 0 0 1-10.5-10.5A9 9 0 1 0 20.5 14Z"/></svg>';
+  themeColor.setAttribute("content",dark?"#19191B":"#F7F5F1");
 }
 applyTheme(localStorage.getItem(THEME_KEY)||"light");
 themeBtn.addEventListener("click",()=>{
@@ -431,7 +469,7 @@ function openDB(){
   });
 }
 
-// V3.6.1: persist image bytes, avoiding WebKit Blob/File IDB serialization.
+// V3.6.2: persist image bytes, avoiding WebKit Blob/File IDB serialization.
 // Legacy Blob/File records remain readable and are converted only on explicit save.
 const encodedMedia=new WeakMap();
 function readBytes(file){return new Promise((resolve,reject)=>{
@@ -481,8 +519,15 @@ let committed=new Map();
 let baseline=[];
 const message=document.getElementById('message');
 new MutationObserver(()=>{document.getElementById('viewerStatus').textContent=statusEl.textContent}).observe(statusEl,{childList:true,characterData:true,subtree:true});
-function notice(text){message.textContent=text;}
-message.title='Нажми, чтобы закрыть';message.onclick=()=>notice('');
+let noticeTimer=null;
+function notice(text,kind='info',persistent=false){
+  clearTimeout(noticeTimer);message.replaceChildren();message.dataset.kind=kind;
+  if(!text)return;
+  const body=document.createElement('span');body.textContent=text;message.append(body);
+  const close=document.createElement('button');close.type='button';close.className='notice-close';close.setAttribute('aria-label','Закрыть сообщение');close.textContent='×';close.onclick=()=>notice('');message.append(close);
+  if(kind!=='error'&&!persistent)noticeTimer=setTimeout(()=>notice(''),6000);
+}
+
 function lock(value){
   busy=value;document.body.classList.toggle('busy',value);
   document.querySelectorAll('button,input[type=file]').forEach(b=>{b.disabled=value});
@@ -490,7 +535,7 @@ function lock(value){
 }
 function fail(err){
   console.error(err);statusEl.textContent='Не сохранено';
-  notice(err.name==='QuotaExceededError'?'Недостаточно места. Скачай резервную копию и освободи место на устройстве.':(err.message||'Не удалось сохранить. Попробуй еще раз.'));
+  notice(err.name==='QuotaExceededError'?'Недостаточно места. Скачай резервную копию и освободи место на устройстве.':(err.message||'Не удалось сохранить. Попробуй еще раз.'),'error');
 }
 function cloneItems(list){return list.map(x=>({...x,carouselFiles:x.carouselFiles?[...x.carouselFiles]:undefined,crop:x.crop?{...x.crop}:undefined}));}
 function fingerprint(x){return JSON.stringify([x.project,x.order,x.type,x.crop,mediaFiles(x).map(f=>blobId(f))]);}
@@ -635,7 +680,7 @@ function renderFullGrid(){
   if(!items.length){
     const empty=document.createElement("div");
     empty.className="empty";
-    empty.innerHTML=`Лента <strong>${activeProject}</strong> пока пустая.<br><br>Добавь будущие публикации.`;
+    empty.innerHTML=`<svg class="empty-mascot" viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="mascotFill" x2="1" y2="1"><stop stop-color="#FFAD72"/><stop offset="1" stop-color="#E86F3A"/></linearGradient></defs><path fill="url(#mascotFill)" d="M23 81 29 30Q31 13 48 13H73Q89 13 87 30 85 43 71 43H51L49 53H63Q76 53 73 66 71 75 59 75H46L44 84Q43 94 32 92 21 91 23 81Z"/><path d="M54 30q4-8 8 0m9-1q4-8 8 0" fill="none" stroke="#202124" stroke-width="3" stroke-linecap="round"/><circle cx="32" cy="88" r="8" fill="#F5C7A6"/><circle cx="49" cy="89" r="7" fill="#F5C7A6"/></svg><strong>Здесь начинается твоя лента</strong><span>Добавь фотографии и найди их идеальный порядок.</span>`;
     grid.appendChild(empty);
     return;
   }
@@ -1070,7 +1115,7 @@ document.getElementById('exportBtn').onclick=async()=>{
     posts.push({id:item.id,project:item.project,order:item.order,type:item.type,crop:item.crop,files});}
     const backupBlob=new Blob([JSON.stringify({format:'feedboard-backup',version:1,createdAt:new Date().toISOString(),posts})],{type:'application/json'});
     download(backupBlob,'feedboard-backup-'+new Date().toISOString().slice(0,10)+'.json');
-    notice('Копия подготовлена. Если скачивание не началось, нажми ссылку ниже.');
+    notice('Копия подготовлена. Сохрани ее в «Файлы». Если скачивание не началось, нажми ссылку ниже.','success',true);
     const link=document.createElement('a');
     const backupUrl=URL.createObjectURL(backupBlob);link.href=backupUrl;link.download='feedboard-backup-'+new Date().toISOString().slice(0,10)+'.json';link.textContent='Скачать копию';link.style.cssText='display:block;color:inherit;text-decoration:underline;padding:12px 0';link.onclick=e=>e.stopPropagation();message.append(link);setTimeout(()=>URL.revokeObjectURL(backupUrl),300000);
   }catch(e){fail(e)}finally{lock(false)}
@@ -1080,7 +1125,7 @@ document.getElementById('backupInput').onchange=async e=>{
   const file=e.target.files[0];e.target.value='';if(!file||busy)return;lock(true);notice('');
   try{
     if(file.size>300*1024*1024)throw new Error('Копия больше 300 МБ. Не удалось открыть ее безопасно на этом устройстве.');
-    const data=JSON.parse(await file.text());if(data.format!=='feedboard-backup'||data.version!==1||!Array.isArray(data.posts))throw new Error('Это не резервная копия Feedboard V3.6.1.');
+    const data=JSON.parse(await file.text());if(data.format!=='feedboard-backup'||data.version!==1||!Array.isArray(data.posts))throw new Error('Это не резервная копия Feedboard V3.6.2.');
     const posts=[],ids=new Set();
     for(const p of data.posts){
       if(typeof p.id!=='string'||!/^[a-zA-Z0-9_-]{1,100}$/.test(p.id)||ids.has(p.id)||!PROJECTS.includes(p.project)||!['photo','carousel','reel'].includes(p.type)||!Number.isInteger(p.order)||p.order<0||!Array.isArray(p.files)||!p.files.length)throw new Error('Копия повреждена: неверные данные публикации.');ids.add(p.id);
