@@ -296,7 +296,7 @@ body.dragging{overscroll-behavior:none}
   <header class="header">
     <div>
       <h1>Feedboard</h1>
-      <p class="subtitle">Визуальный планировщик · V3.6</p>
+      <p class="subtitle">Визуальный планировщик · V3.6.1</p>
     </div>
     <div class="header-actions">
       <button id="themeBtn" class="icon-btn" aria-label="Сменить тему">☾</button>
@@ -431,12 +431,45 @@ function openDB(){
   });
 }
 
+// V3.6.1: persist image bytes, avoiding WebKit Blob/File IDB serialization.
+// Legacy Blob/File records remain readable and are converted only on explicit save.
+const encodedMedia=new WeakMap();
+function readBytes(file){return new Promise((resolve,reject)=>{
+  const reader=new FileReader();
+  const timer=setTimeout(()=>{reader.abort();reject(new Error('Не удалось прочитать фотографию за 20 секунд. Данные не изменены.'));},20000);
+  reader.onload=()=>{clearTimeout(timer);resolve(reader.result)};
+  reader.onerror=()=>{clearTimeout(timer);reject(reader.error||new Error('Не удалось прочитать фотографию'))};
+  reader.onabort=()=>{clearTimeout(timer);reject(new Error('Чтение фотографии прервано'))};
+  reader.readAsArrayBuffer(file);
+})}
+async function encodeMedia(file){
+  if(!file)return file;
+  if(encodedMedia.has(file))return encodedMedia.get(file);
+  const stored={_fbMedia:1,bytes:await readBytes(file),name:file.name||'photo',type:file.type||'',lastModified:file.lastModified||0};
+  encodedMedia.set(file,stored);return stored;
+}
+function decodeMedia(file){
+  if(!file||file._fbMedia!==1)return file;
+  if(Object.prototype.toString.call(file.bytes)!=='[object ArrayBuffer]')throw new Error('Не удалось прочитать сохраненную фотографию. Не очищай данные приложения.');
+  const decoded=new File([file.bytes],file.name||'photo',{type:file.type||'',lastModified:file.lastModified||0});
+  encodedMedia.set(decoded,file);return decoded;
+}
+function decodeRecord(record){return {...record,file:decodeMedia(record.file),carouselFiles:Array.isArray(record.carouselFiles)?record.carouselFiles.map(decodeMedia):record.carouselFiles}}
+async function encodeRecord(record){
+  const result={...record,file:await encodeMedia(record.file)};
+  if(Array.isArray(record.carouselFiles)){
+    result.carouselFiles=[];
+    for(const file of record.carouselFiles)result.carouselFiles.push(await encodeMedia(file));
+  }
+  return result;
+}
+
 async function getAllPosts(){
   const db=await openDB();
   return new Promise((resolve,reject)=>{
     const tx=db.transaction(STORE,"readonly");
     const req=tx.objectStore(STORE).getAll();
-    req.onsuccess=()=>resolve(req.result||[]);
+    req.onsuccess=()=>{try{resolve((req.result||[]).map(decodeRecord))}catch(e){reject(e)}};
     tx.oncomplete=()=>db.close();
     tx.onabort=()=>{db.close();reject(tx.error)};
     req.onerror=()=>reject(req.error);
@@ -465,12 +498,15 @@ const blobIds=new WeakMap();let nextBlobId=0;
 function blobId(blob){if(!blobIds.has(blob))blobIds.set(blob,++nextBlobId);return blobIds.get(blob);}
 function remember(){committed=new Map(items.map(x=>[x.id,fingerprint(x)]));baseline=items.map(x=>[x.id,x._fbRevision||0]);}
 async function writeChanges(list,deleted=[],expectedProject=null,expectedRows=null){
+  const stored=[];
+  for(const record of list)stored.push(await encodeRecord(record));
   const db=await openDB();
   try{await new Promise((resolve,reject)=>{
     const tx=db.transaction(STORE,'readwrite');let problem=null;
-    tx.oncomplete=resolve;tx.onabort=()=>reject(problem||tx.error||new Error('Сохранение прервано'));tx.onerror=()=>{};
+    const timer=setTimeout(()=>{problem=new Error('Сохранение не завершилось за 25 секунд. Попробуй открыть приложение заново.');try{tx.abort()}catch(e){reject(problem)}},25000);
+    tx.oncomplete=()=>{clearTimeout(timer);resolve()};tx.onabort=()=>{clearTimeout(timer);reject(problem||tx.error||new Error('Сохранение прервано'))};tx.onerror=()=>{};
     const store=tx.objectStore(STORE);
-    const write=()=>{try{deleted.forEach(id=>store.delete(id));list.forEach(x=>store.put(x));}catch(e){problem=e;tx.abort();}};
+    const write=()=>{try{deleted.forEach(id=>store.delete(id));stored.forEach(x=>store.put(x));}catch(e){problem=e;tx.abort();}};
     if(expectedProject){
       const req=store.getAll();req.onsuccess=()=>{
         const rows=req.result.filter(x=>x.project===expectedProject).map(x=>[x.id,x._fbRevision||0]);
@@ -1032,8 +1068,11 @@ document.getElementById('exportBtn').onclick=async()=>{
   if(busy||dragState)return;lock(true);notice('');
   try{const all=await getAllPosts(),posts=[];for(const item of all){const files=[];for(const file of mediaFiles(item))files.push({name:file.name||'photo',data:await readDataURL(file)});
     posts.push({id:item.id,project:item.project,order:item.order,type:item.type,crop:item.crop,files});}
-    download(new Blob([JSON.stringify({format:'feedboard-backup',version:1,createdAt:new Date().toISOString(),posts})],{type:'application/json'}),'feedboard-backup-'+new Date().toISOString().slice(0,10)+'.json');
-    notice('Копия подготовлена. Сохрани файл в «Файлы» и проверь, что он появился.');
+    const backupBlob=new Blob([JSON.stringify({format:'feedboard-backup',version:1,createdAt:new Date().toISOString(),posts})],{type:'application/json'});
+    download(backupBlob,'feedboard-backup-'+new Date().toISOString().slice(0,10)+'.json');
+    notice('Копия подготовлена. Если скачивание не началось, нажми ссылку ниже.');
+    const link=document.createElement('a');
+    const backupUrl=URL.createObjectURL(backupBlob);link.href=backupUrl;link.download='feedboard-backup-'+new Date().toISOString().slice(0,10)+'.json';link.textContent='Скачать копию';link.style.cssText='display:block;color:inherit;text-decoration:underline;padding:12px 0';link.onclick=e=>e.stopPropagation();message.append(link);setTimeout(()=>URL.revokeObjectURL(backupUrl),300000);
   }catch(e){fail(e)}finally{lock(false)}
 };
 document.getElementById('importBtn').onclick=()=>document.getElementById('backupInput').click();
@@ -1041,7 +1080,7 @@ document.getElementById('backupInput').onchange=async e=>{
   const file=e.target.files[0];e.target.value='';if(!file||busy)return;lock(true);notice('');
   try{
     if(file.size>300*1024*1024)throw new Error('Копия больше 300 МБ. Не удалось открыть ее безопасно на этом устройстве.');
-    const data=JSON.parse(await file.text());if(data.format!=='feedboard-backup'||data.version!==1||!Array.isArray(data.posts))throw new Error('Это не резервная копия Feedboard V3.6.');
+    const data=JSON.parse(await file.text());if(data.format!=='feedboard-backup'||data.version!==1||!Array.isArray(data.posts))throw new Error('Это не резервная копия Feedboard V3.6.1.');
     const posts=[],ids=new Set();
     for(const p of data.posts){
       if(typeof p.id!=='string'||!/^[a-zA-Z0-9_-]{1,100}$/.test(p.id)||ids.has(p.id)||!PROJECTS.includes(p.project)||!['photo','carousel','reel'].includes(p.type)||!Number.isInteger(p.order)||p.order<0||!Array.isArray(p.files)||!p.files.length)throw new Error('Копия повреждена: неверные данные публикации.');ids.add(p.id);
