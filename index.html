@@ -334,7 +334,7 @@ button:focus-visible,label:focus-within{outline:2px solid var(--accent);outline-
   <header class="header">
     <div>
       <h1><svg class="brand-mark" viewBox="0 0 48 52" aria-hidden="true"><g fill="currentColor" transform="skewX(-12)"><rect x="13" y="3" width="34" height="14" rx="5"/><rect x="13" y="20" width="15" height="13" rx="4"/><rect x="31" y="20" width="13" height="13" rx="4"/><rect x="13" y="36" width="15" height="13" rx="4"/></g></svg><span>feedboard</span></h1>
-      <p class="subtitle">Визуальный планировщик · V3.6.2</p>
+      <p class="subtitle">Визуальный планировщик · V3.6.3</p>
     </div>
     <div class="header-actions">
       <button id="themeBtn" class="icon-btn" aria-label="Сменить тему">☾</button>
@@ -411,7 +411,9 @@ button:focus-visible,label:focus-within{outline:2px solid var(--accent);outline-
 <script>
 const DB_NAME="feedboard-v2-db";
 const STORE="posts";
-const DB_VERSION=1;
+const DB_VERSION=2;
+const META_STORE="meta";
+let loadedGeneration=null;
 const PROJECTS=["Personal","Project 1","Project 2"];
 const ACTIVE_KEY="feedboard-active-project";
 const THEME_KEY="feedboard-theme";
@@ -463,8 +465,12 @@ function openDB(){
       if(!db.objectStoreNames.contains(STORE)){
         db.createObjectStore(STORE,{keyPath:"id"});
       }
+      if(!db.objectStoreNames.contains(META_STORE)){
+        db.createObjectStore(META_STORE,{keyPath:"id"}).put({id:'state',generation:crypto.randomUUID(),revision:0});
+      }
     };
-    req.onsuccess=()=>resolve(req.result);
+    req.onblocked=()=>notice('Закрой другие вкладки Feedboard, чтобы завершить обновление. Фотографии сохранятся.');
+    req.onsuccess=()=>{req.result.onversionchange=()=>req.result.close();resolve(req.result)};
     req.onerror=()=>reject(req.error);
   });
 }
@@ -502,17 +508,19 @@ async function encodeRecord(record){
   return result;
 }
 
-async function getAllPosts(){
+async function readSnapshot(){
   const db=await openDB();
-  return new Promise((resolve,reject)=>{
-    const tx=db.transaction(STORE,"readonly");
-    const req=tx.objectStore(STORE).getAll();
-    req.onsuccess=()=>{try{resolve((req.result||[]).map(decodeRecord))}catch(e){reject(e)}};
-    tx.oncomplete=()=>db.close();
-    tx.onabort=()=>{db.close();reject(tx.error)};
-    req.onerror=()=>reject(req.error);
-  });
+  try{return await new Promise((resolve,reject)=>{
+    const tx=db.transaction([STORE,META_STORE],'readonly');
+    const rows=tx.objectStore(STORE).getAll(),state=tx.objectStore(META_STORE).get('state');
+    tx.oncomplete=()=>{try{
+      if(!state.result)throw new Error('Не удалось прочитать состояние хранилища. Не очищай данные приложения.');
+      resolve({posts:(rows.result||[]).map(decodeRecord),state:state.result});
+    }catch(e){reject(e)}};
+    tx.onabort=()=>reject(tx.error||new Error('Чтение данных прервано'));
+  });}finally{db.close()}
 }
+async function getAllPosts(){return (await readSnapshot()).posts;}
 
 let busy=false;
 let committed=new Map();
@@ -542,27 +550,40 @@ function fingerprint(x){return JSON.stringify([x.project,x.order,x.type,x.crop,m
 const blobIds=new WeakMap();let nextBlobId=0;
 function blobId(blob){if(!blobIds.has(blob))blobIds.set(blob,++nextBlobId);return blobIds.get(blob);}
 function remember(){committed=new Map(items.map(x=>[x.id,fingerprint(x)]));baseline=items.map(x=>[x.id,x._fbRevision||0]);}
-async function writeChanges(list,deleted=[],expectedProject=null,expectedRows=null){
+async function writeChanges(list,deleted=[],expectedProject=null,expectedRows=null,restoreState=null){
   const stored=[];
   for(const record of list)stored.push(await encodeRecord(record));
   const db=await openDB();
-  try{await new Promise((resolve,reject)=>{
-    const tx=db.transaction(STORE,'readwrite');let problem=null;
+  try{return await new Promise((resolve,reject)=>{
+    const tx=db.transaction([STORE,META_STORE],'readwrite');let problem=null,nextState;
     const timer=setTimeout(()=>{problem=new Error('Сохранение не завершилось за 25 секунд. Попробуй открыть приложение заново.');try{tx.abort()}catch(e){reject(problem)}},25000);
-    tx.oncomplete=()=>{clearTimeout(timer);resolve()};tx.onabort=()=>{clearTimeout(timer);reject(problem||tx.error||new Error('Сохранение прервано'))};tx.onerror=()=>{};
-    const store=tx.objectStore(STORE);
-    const write=()=>{try{deleted.forEach(id=>store.delete(id));stored.forEach(x=>store.put(x));}catch(e){problem=e;tx.abort();}};
-    if(expectedProject){
-      const req=store.getAll();req.onsuccess=()=>{
-        const rows=req.result.filter(x=>x.project===expectedProject).map(x=>[x.id,x._fbRevision||0]);
-        const sorted=rows=>JSON.stringify([...rows].sort((a,b)=>a[0].localeCompare(b[0])));
-        if(sorted(rows)!==sorted(expectedRows)){
-          problem=new Error('Лента изменилась в другом окне. Закрой другие окна Feedboard и обнови страницу перед повтором.');tx.abort();return;
-        }write();
-      };
-    }else write();
-  });}finally{db.close();}
+    tx.oncomplete=()=>{clearTimeout(timer);resolve(nextState)};
+    tx.onabort=()=>{clearTimeout(timer);reject(problem||tx.error||new Error('Сохранение прервано'))};tx.onerror=()=>{};
+    const store=tx.objectStore(STORE),meta=tx.objectStore(META_STORE);
+    const abort=()=>{problem=new Error(restoreState?'Данные изменились в другом окне во время проверки копии. Импорт отменен, прежние проекты сохранены. Обнови вкладку и повтори импорт.':'Лента изменилась в другом окне. Обнови эту вкладку перед повтором. Изменения не записаны.');tx.abort()};
+    const req=meta.get('state');
+    req.onsuccess=()=>{
+      const state=req.result;
+      if(!state){problem=new Error('Не удалось прочитать состояние хранилища.');tx.abort();return;}
+      if(restoreState){
+        if(state.generation!==restoreState.generation||state.revision!==restoreState.revision){abort();return;}
+      }else if(expectedProject&&state.generation!==loadedGeneration){abort();return;}
+      nextState={id:'state',generation:restoreState?crypto.randomUUID():state.generation,revision:state.revision+1};
+      const write=()=>{try{
+        if(restoreState)store.clear();else deleted.forEach(id=>store.delete(id));
+        stored.forEach(x=>store.put(x));meta.put(nextState);
+      }catch(e){problem=e;tx.abort()}};
+      if(expectedProject){
+        const rows=store.getAll();rows.onsuccess=()=>{
+          const current=rows.result.filter(x=>x.project===expectedProject).map(x=>[x.id,x._fbRevision||0]);
+          const sorted=x=>JSON.stringify([...x].sort((a,b)=>a[0].localeCompare(b[0])));
+          if(sorted(current)!==sorted(expectedRows)){abort();return;}write();
+        };
+      }else write();
+    };
+  });}finally{db.close()}
 }
+
 async function saveItems(deleted=[]){
   const snapshot=cloneItems(items).map((x,i)=>({...x,order:i,project:activeProject}));
   statusEl.textContent='Сохраняю…';
@@ -614,7 +635,8 @@ function releaseUrls(id){
 }
 
 async function loadProject(){
-  const all=await getAllPosts();
+  const snapshot=await readSnapshot();const all=snapshot.posts;
+  loadedGeneration=snapshot.state.generation;
   for(const url of objectUrls.values())URL.revokeObjectURL(url);objectUrls.clear();
   items=all.filter(x=>x.project===activeProject).sort((a,b)=>(a.order??0)-(b.order??0)||a.id.localeCompare(b.id));
   remember();renderFullGrid();
@@ -1120,24 +1142,41 @@ document.getElementById('exportBtn').onclick=async()=>{
     const backupUrl=URL.createObjectURL(backupBlob);link.href=backupUrl;link.download='feedboard-backup-'+new Date().toISOString().slice(0,10)+'.json';link.textContent='Скачать копию';link.style.cssText='display:block;color:inherit;text-decoration:underline;padding:12px 0';link.onclick=e=>e.stopPropagation();message.append(link);setTimeout(()=>URL.revokeObjectURL(backupUrl),300000);
   }catch(e){fail(e)}finally{lock(false)}
 };
+function validateBackupImage(file,label){
+  return new Promise((resolve,reject)=>{
+    const img=new Image();let url=null,finished=false;
+    const finish=error=>{
+      if(finished)return;finished=true;clearTimeout(timer);img.onload=img.onerror=null;
+      img.removeAttribute('src');if(url)URL.revokeObjectURL(url);
+      if(error)reject(new Error(`Не удалось прочитать ${label}. Копия повреждена или формат не поддерживается на этом устройстве. Все прежние проекты сохранены.`));else resolve();
+    };
+    const timer=setTimeout(()=>finish(true),20000);
+    img.onload=()=>finish(!(img.naturalWidth>0&&img.naturalHeight>0));
+    img.onerror=()=>finish(true);
+    try{url=URL.createObjectURL(file);img.src=url}catch(e){finish(true)}
+  });
+}
 document.getElementById('importBtn').onclick=()=>document.getElementById('backupInput').click();
 document.getElementById('backupInput').onchange=async e=>{
-  const file=e.target.files[0];e.target.value='';if(!file||busy)return;lock(true);notice('');
+  const file=e.target.files[0];e.target.value='';if(!file||busy||dragState)return;lock(true);notice('');
   try{
+    const importStart=(await readSnapshot()).state;
+    if(importStart.generation!==loadedGeneration)throw new Error('Данные восстановлены в другом окне. Обнови эту вкладку перед импортом.');
     if(file.size>300*1024*1024)throw new Error('Копия больше 300 МБ. Не удалось открыть ее безопасно на этом устройстве.');
-    const data=JSON.parse(await file.text());if(data.format!=='feedboard-backup'||data.version!==1||!Array.isArray(data.posts))throw new Error('Это не резервная копия Feedboard V3.6.2.');
+    const data=JSON.parse(await file.text());if(data.format!=='feedboard-backup'||data.version!==1||!Array.isArray(data.posts))throw new Error('Это не поддерживаемая резервная копия Feedboard.');
     const posts=[],ids=new Set();
     for(const p of data.posts){
       if(typeof p.id!=='string'||!/^[a-zA-Z0-9_-]{1,100}$/.test(p.id)||ids.has(p.id)||!PROJECTS.includes(p.project)||!['photo','carousel','reel'].includes(p.type)||!Number.isInteger(p.order)||p.order<0||!Array.isArray(p.files)||!p.files.length)throw new Error('Копия повреждена: неверные данные публикации.');ids.add(p.id);
       const files=[];for(const f of p.files){
         if(typeof f.data!=='string'||!/^data:image\/(jpeg|png|webp|gif|heic|heif);base64,[A-Za-z0-9+/=]+$/.test(f.data))throw new Error('Копия содержит неподдерживаемый файл.');
-        const [head,body]=f.data.split(',');const bytes=Uint8Array.from(atob(body),c=>c.charCodeAt(0));files.push(new File([bytes],String(f.name||'photo'),{type:head.slice(5,head.indexOf(';'))}));
+        const [head,body]=f.data.split(',');const bytes=Uint8Array.from(atob(body),c=>c.charCodeAt(0));const imageFile=new File([bytes],String(f.name||'photo'),{type:head.slice(5,head.indexOf(';'))});
+        await validateBackupImage(imageFile,`фото ${files.length+1} публикации ${posts.length+1}`);files.push(imageFile);
       }
       if(p.crop&&(![p.crop.x,p.crop.y,p.crop.z].every(Number.isFinite)||p.crop.x<0||p.crop.x>1||p.crop.y<0||p.crop.y>1||p.crop.z<1||p.crop.z>3))throw new Error('В копии повреждено кадрирование.');
       posts.push({id:p.id,project:p.project,order:p.order,type:p.type,crop:p.crop,file:files[0],carouselFiles:files});
     }
     if(!confirm('Восстановление заменит все три проекта содержимым копии. Продолжить?'))return;
-    const old=await getAllPosts();await writeChanges(posts,old.map(x=>x.id));closeViewer();await loadProject();statusEl.textContent='Сохранено';notice('Все проекты восстановлены.');
+    await writeChanges(posts,[],null,null,importStart);closeViewer();await loadProject();statusEl.textContent='Сохранено';notice('Все проекты восстановлены.');
   }catch(e){fail(e)}finally{lock(false)}
 };
 window.addEventListener('beforeunload',e=>{if(busy){e.preventDefault();e.returnValue=''}});
