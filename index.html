@@ -108,7 +108,7 @@ input[type=file]{display:none}
   transform:scale(1.03);
 }
 .drag-ghost img{
-  width:100%;height:100%;object-fit:cover;display:block
+  position:absolute;max-width:none;width:100%;height:100%;object-fit:cover;display:block
 }
 .card.removing{opacity:0;transform:scale(.96)}
 .card img{
@@ -327,6 +327,16 @@ button:focus-visible,label:focus-within{outline:2px solid var(--accent);outline-
 @media(max-width:359px){.app{padding-left:12px;padding-right:12px}h1{font-size:25px;gap:6px}.brand-mark{width:25px}.subtitle{font-size:10px}.icon-btn{width:35px;height:38px}.file-button{font-size:11px}}
 @media(min-width:620px){.app{padding-top:36px}.panel{padding:0}.grid{gap:5px}.header{margin-bottom:30px}h1{font-size:34px}.subtitle{font-size:12px}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important}}
+/* V3.7: retain the existing visual system; only grid and touch targets change. */
+.grid{gap:2px}.card,.drag-ghost{border-radius:0}.card{aspect-ratio:3/4}.grid[data-view="reels"] .card{aspect-ratio:9/16}
+.grid-tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin:0 0 12px}.grid-tabs button{flex:1;min-height:44px;background:transparent;color:var(--muted);border:0;border-bottom:2px solid transparent;font:inherit;font-size:12px}.grid-tabs button[aria-pressed="true"]{color:var(--accent-ink);border-bottom-color:var(--accent)}
+.project-btn{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-height:44px}.viewer-type{min-width:0;font-size:12px;min-height:44px;padding:8px 4px;white-space:normal}.viewer-types{grid-template-columns:1fr 1fr 1.25fr}
+.type-icon,.type-icon.reel-icon,.type-icon.carousel-icon{position:absolute;top:6px;right:6px;width:20px;height:20px;background:none;border:0;border-radius:0;box-shadow:none;padding:0;pointer-events:none;filter:drop-shadow(0 1px 1px #0005)}.type-icon svg{display:block;width:100%;height:100%}
+.carousel-move button{min-width:40px;min-height:44px}.carousel-thumb{min-width:90px}.viewer-close,.viewer-arrow,.notice-close{min-width:44px;min-height:44px}
+.backup-shortcut{display:block;margin:4px auto 0;min-height:44px;background:none;border:0;color:var(--accent-ink);font:inherit;font-size:12px;text-decoration:underline}
+#undoNotice{position:fixed;bottom:max(16px,env(safe-area-inset-bottom));left:12px;right:12px;max-width:680px;margin:auto;z-index:1200;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:8px 12px;display:flex;align-items:center;gap:8px;box-shadow:0 6px 24px #0002;font-size:12px}#undoNotice[hidden]{display:none}#undoText{flex:1}#undoNotice button{min-height:44px;border:0;background:transparent;color:var(--accent-ink);font:inherit;font-weight:700}#undoClose{min-width:44px}
+#projectName{display:block;width:100%;box-sizing:border-box;margin:12px 0;padding:12px;font:inherit;background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:10px}
+@media(max-width:359px){.viewer-type{font-size:11px}.project-btn{padding:10px 5px}}
 </style>
 </head>
 <body>
@@ -334,7 +344,7 @@ button:focus-visible,label:focus-within{outline:2px solid var(--accent);outline-
   <header class="header">
     <div>
       <h1><svg class="brand-mark" viewBox="0 0 48 52" aria-hidden="true"><g fill="currentColor" transform="skewX(-12)"><rect x="13" y="3" width="34" height="14" rx="5"/><rect x="13" y="20" width="15" height="13" rx="4"/><rect x="31" y="20" width="13" height="13" rx="4"/><rect x="13" y="36" width="15" height="13" rx="4"/></g></svg><span>feedboard</span></h1>
-      <p class="subtitle">Визуальный планировщик · V3.6.3</p>
+      <p class="subtitle">Визуальный планировщик · V3.7 preview</p>
     </div>
     <div class="header-actions">
       <button id="themeBtn" class="icon-btn" aria-label="Сменить тему">☾</button>
@@ -342,7 +352,7 @@ button:focus-visible,label:focus-within{outline:2px solid var(--accent);outline-
         <button id="menuBtn" class="icon-btn" aria-label="Меню">•••</button>
         <div id="menu" class="menu">
           <button id="exportBtn">Скачать резервную копию</button><button id="importBtn">Восстановить из копии</button><input id="backupInput" type="file" accept="application/json,.json"><button id="editModeBtn">Удалить несколько</button>
-          <button id="clearBtn" class="danger">Очистить текущую ленту</button>
+          <button id="renameBtn">Переименовать проект</button><button id="clearBtn" class="danger">Очистить текущую ленту</button>
         </div>
       </div>
     </div>
@@ -366,11 +376,11 @@ button:focus-visible,label:focus-within{outline:2px solid var(--accent);outline-
       Зажми публикацию и перетащи. Подведи к краю экрана — лента прокрутится сама. Обычный тап открывает публикацию.
     </p>
 
-    <button id="doneBtn" class="cancel" hidden>Готово</button><div id="message" role="status" aria-live="polite"></div><div id="grid" class="grid"></div>
+    <button id="doneBtn" class="cancel" hidden>Готово</button><div id="message" role="status" aria-live="polite"></div><div class="grid-tabs" aria-label="Вид ленты"><button id="mainGridBtn" aria-pressed="true">Основная сетка</button><button id="reelsGridBtn" aria-pressed="false">Reels</button></div><p id="reelsNote" class="viewer-note" hidden>Здесь только обложки Reels, без видео. Кадрирование основной сетки сохраняется отдельно от этого просмотра.</p><div id="grid" class="grid"></div><div id="undoNotice" role="status" hidden><span id="undoText"></span><button id="undoBtn">Отменить</button><button id="undoClose" aria-label="Закрыть отмену">×</button></div>
 
     <p class="bottom-note">
-      Все проекты и изображения хранятся только на этом устройстве и не отправляются на сервер.
-    </p>
+      Фото и проекты хранятся на этом устройстве, без синхронизации. Сохраняй резервную копию перед очисткой браузера.
+    </p><button id="backupShortcut" class="backup-shortcut">Скачать резервную копию</button>
   </section>
 </main>
 
@@ -391,9 +401,9 @@ button:focus-visible,label:focus-within{outline:2px solid var(--accent);outline-
     <div class="viewer-section">
       <p class="viewer-label">Тип публикации</p>
       <div class="viewer-types">
-        <button class="viewer-type" data-type="photo">Фото</button>
+        <button class="viewer-type" data-type="photo">Пост</button>
         <button class="viewer-type" data-type="carousel">Карусель</button>
-        <button class="viewer-type" data-type="reel">Reel</button>
+        <button class="viewer-type" data-type="reel">Обложка Reels</button>
       </div>
     </div>
 
@@ -407,7 +417,8 @@ button:focus-visible,label:focus-within{outline:2px solid var(--accent);outline-
   </div>
 </div>
 
-<div id="cropModal" class="viewer-backdrop" role="dialog" aria-modal="true" aria-label="Обложка в сетке"><div class="viewer-sheet"><h3>Обложка в сетке</h3><p class="viewer-note">Передвигай фото пальцем. Масштаб меняется ползунком. Исходное изображение остается без изменений.</p><div id="cropFrame"><img id="cropImage" alt="Обложка"></div><label>Масштаб <input id="cropZoom" type="range" min="1" max="3" step="0.01" value="1"></label><button id="cropSave" class="cancel">Сохранить обложку</button><button id="cropReset" class="cancel">По центру</button><button id="cropCancel" class="cancel">Отмена</button></div></div>
+<div id="cropModal" class="viewer-backdrop" role="dialog" aria-modal="true" aria-label="Обложка в сетке"><div class="viewer-sheet"><h3>Обложка в основной сетке</h3><p class="viewer-note">Передвигай фото пальцем. Масштаб меняется ползунком. Исходное изображение остается без изменений.</p><div id="cropFrame"><img id="cropImage" alt="Обложка"></div><label>Масштаб <input id="cropZoom" type="range" min="1" max="3" step="0.01" value="1"></label><button id="cropSave" class="cancel">Сохранить обложку</button><button id="cropReset" class="cancel">По центру</button><button id="cropCancel" class="cancel">Отмена</button></div></div>
+<div id="renameModal" class="viewer-backdrop" role="dialog" aria-modal="true" aria-labelledby="renameTitle"><form id="renameForm" class="viewer-sheet"><h3 id="renameTitle">Название проекта</h3><label for="projectName">До 30 символов</label><input id="projectName" type="text" maxlength="30" required autocomplete="off"><button class="cancel" type="submit">Сохранить название</button><button id="renameCancel" class="cancel" type="button">Отмена</button></form></div>
 <script>
 const DB_NAME="feedboard-v2-db";
 const STORE="posts";
@@ -421,6 +432,10 @@ const THEME_KEY="feedboard-theme";
 let activeProject=localStorage.getItem(ACTIVE_KEY)||PROJECTS[0];
 if(!PROJECTS.includes(activeProject))activeProject=PROJECTS[0];
 let items=[];
+let gridView="main";
+let projectNames={};
+let undoEntry=null;
+function projectLabel(id){return projectNames[id]||id;}
 let editing=false;
 let selectedItemId=null;
 let viewerIndex=0;
@@ -512,10 +527,10 @@ async function readSnapshot(){
   const db=await openDB();
   try{return await new Promise((resolve,reject)=>{
     const tx=db.transaction([STORE,META_STORE],'readonly');
-    const rows=tx.objectStore(STORE).getAll(),state=tx.objectStore(META_STORE).get('state');
+    const rows=tx.objectStore(STORE).getAll(),state=tx.objectStore(META_STORE).get('state'),names=tx.objectStore(META_STORE).get('projectNames');
     tx.oncomplete=()=>{try{
       if(!state.result)throw new Error('Не удалось прочитать состояние хранилища. Не очищай данные приложения.');
-      resolve({posts:(rows.result||[]).map(decodeRecord),state:state.result});
+      resolve({posts:(rows.result||[]).map(decodeRecord),state:{...state.result,projectNames:names.result?.values||{}}});
     }catch(e){reject(e)}};
     tx.onabort=()=>reject(tx.error||new Error('Чтение данных прервано'));
   });}finally{db.close()}
@@ -530,6 +545,7 @@ new MutationObserver(()=>{document.getElementById('viewerStatus').textContent=st
 let noticeTimer=null;
 function notice(text,kind='info',persistent=false){
   clearTimeout(noticeTimer);message.replaceChildren();message.dataset.kind=kind;
+  document.getElementById('undoNotice').hidden=!!text||!undoEntry;
   if(!text)return;
   const body=document.createElement('span');body.textContent=text;message.append(body);
   const close=document.createElement('button');close.type='button';close.className='notice-close';close.setAttribute('aria-label','Закрыть сообщение');close.textContent='×';close.onclick=()=>notice('');message.append(close);
@@ -550,7 +566,7 @@ function fingerprint(x){return JSON.stringify([x.project,x.order,x.type,x.crop,m
 const blobIds=new WeakMap();let nextBlobId=0;
 function blobId(blob){if(!blobIds.has(blob))blobIds.set(blob,++nextBlobId);return blobIds.get(blob);}
 function remember(){committed=new Map(items.map(x=>[x.id,fingerprint(x)]));baseline=items.map(x=>[x.id,x._fbRevision||0]);}
-async function writeChanges(list,deleted=[],expectedProject=null,expectedRows=null,restoreState=null){
+async function writeChanges(list,deleted=[],expectedProject=null,expectedRows=null,restoreState=null,metadata=null){
   const stored=[];
   for(const record of list)stored.push(await encodeRecord(record));
   const db=await openDB();
@@ -568,10 +584,13 @@ async function writeChanges(list,deleted=[],expectedProject=null,expectedRows=nu
       if(restoreState){
         if(state.generation!==restoreState.generation||state.revision!==restoreState.revision){abort();return;}
       }else if(expectedProject&&state.generation!==loadedGeneration){abort();return;}
-      nextState={id:'state',generation:restoreState?crypto.randomUUID():state.generation,revision:state.revision+1};
+      if(metadata?.expectedState&&(state.generation!==metadata.expectedState.generation||state.revision!==metadata.expectedState.revision)){abort();return;}
+      nextState={...state,id:'state',generation:restoreState?crypto.randomUUID():state.generation,revision:state.revision+1};
+
       const write=()=>{try{
         if(restoreState)store.clear();else deleted.forEach(id=>store.delete(id));
         stored.forEach(x=>store.put(x));meta.put(nextState);
+        if(metadata?.projectNames)meta.put({id:'projectNames',values:{...metadata.projectNames}});
       }catch(e){problem=e;tx.abort()}};
       if(expectedProject){
         const rows=store.getAll();rows.onsuccess=()=>{
@@ -590,7 +609,9 @@ async function saveItems(deleted=[]){
   const changed=snapshot.filter(x=>committed.get(x.id)!==fingerprint(x));
   changed.forEach(x=>x._fbRevision=(x._fbRevision||0)+1);
   await writeChanges(changed,deleted,activeProject,baseline);
-  items=snapshot;remember();statusEl.textContent='Сохранено';
+  items=snapshot;remember();
+  if(undoEntry&&undoEntry.project===activeProject&&undoEntry.generation===loadedGeneration){undoEntry.rows=baseline.map(x=>[...x]);undoEntry.remaining=cloneItems(items);}
+  statusEl.textContent='Сохранено';
 }
 async function mutate(change){
   if(busy||dragState)return false;
@@ -599,10 +620,31 @@ async function mutate(change){
   catch(err){items=before;renderFullGrid();if(selectedItemId)renderViewer();fail(err);return false;}
   finally{lock(false);}
 }
+function clearUndo(){undoEntry=null;document.getElementById('undoNotice').hidden=true;}
 async function removePost(id){
+  const record=items.find(x=>x.id===id);if(!record)return;
+  const project=activeProject,index=items.indexOf(record),saved=cloneItems([record])[0],generation=loadedGeneration;
   const ok=await mutate(()=>{items=items.filter(x=>x.id!==id);return [id];});
-  if(ok){releaseUrls(id);if(selectedItemId===id)closeViewer();}
+  if(ok){
+    releaseUrls(id);if(selectedItemId===id)closeViewer();
+    undoEntry={record:saved,project,index,generation,rows:baseline.map(x=>[...x]),remaining:cloneItems(items)};
+    document.getElementById('undoText').textContent='Удалено из «'+projectLabel(project)+'»';document.getElementById('undoNotice').hidden=false;
+  }
 }
+async function undoDelete(){
+  if(!undoEntry||busy||dragState)return false;
+  const entry=undoEntry;lock(true);
+  try{
+    if(entry.generation!==loadedGeneration)throw new Error('После восстановления копии отмена старого удаления недоступна.');
+    const restored=cloneItems(entry.remaining);restored.splice(entry.index,0,entry.record);
+    restored.forEach((p,i)=>{p.order=i;p._fbRevision=(p._fbRevision||0)+1});
+    await writeChanges(restored,[],entry.project,entry.rows);
+    if(activeProject===entry.project){items=restored;remember();renderFullGrid();}statusEl.textContent='Сохранено';
+    clearUndo();notice('Публикация восстановлена в «'+projectLabel(entry.project)+'».');return true;
+  }catch(e){fail(e);return false}finally{lock(false)}
+}
+document.getElementById('undoBtn').onclick=undoDelete;
+document.getElementById('undoClose').onclick=clearUndo;
 
 function mediaFiles(item){
   if(Array.isArray(item.carouselFiles)&&item.carouselFiles.length)return item.carouselFiles;
@@ -636,7 +678,7 @@ function releaseUrls(id){
 
 async function loadProject(){
   const snapshot=await readSnapshot();const all=snapshot.posts;
-  loadedGeneration=snapshot.state.generation;
+  loadedGeneration=snapshot.state.generation;projectNames=snapshot.state.projectNames||{};renderProjects();
   for(const url of objectUrls.values())URL.revokeObjectURL(url);objectUrls.clear();
   items=all.filter(x=>x.project===activeProject).sort((a,b)=>(a.order??0)-(b.order??0)||a.id.localeCompare(b.id));
   remember();renderFullGrid();
@@ -644,7 +686,7 @@ async function loadProject(){
 function renderProjects(){
   projectsEl.innerHTML='';
   PROJECTS.forEach(name=>{
-    const btn=document.createElement('button');btn.className='project-btn'+(name===activeProject?' active':'');btn.textContent=name;
+    const btn=document.createElement('button');btn.className='project-btn'+(name===activeProject?' active':'');btn.textContent=projectLabel(name);btn.title=projectLabel(name);btn.setAttribute("aria-label",projectLabel(name));
     btn.onclick=async()=>{
       if(busy||dragState||name===activeProject)return;
       lock(true);const previous=activeProject;
@@ -655,17 +697,22 @@ function renderProjects(){
 }
 
 function applyTypeIcon(icon,type){
-  icon.className="type-icon";
-  icon.textContent="";
-  icon.innerHTML="";
-  if(type==="reel"){
-    icon.classList.add("reel-icon");
-    icon.textContent="▶";
-  }else if(type==="carousel"){
-    icon.classList.add("carousel-icon");
-    icon.innerHTML='<span class="carousel-back"></span><span class="carousel-front"></span>';
-  }
+  if(icon.dataset.type===type)return;
+  icon.dataset.type=type;icon.className='type-icon';icon.replaceChildren();
+  if(type==='reel'){icon.classList.add('reel-icon');icon.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="2" width="20" height="20" rx="5" fill="white"/><path d="m10 7 7 5-7 5Z" fill="#202124"/></svg>';}
+  if(type==='carousel'){icon.classList.add('carousel-icon');icon.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M9 3h9a3 3 0 0 1 3 3v9"/><rect x="3" y="7" width="14" height="14" rx="3"/></svg>';}
 }
+function visibleItems(){return gridView==='reels'?items.filter(p=>p.type==='reel'):items;}
+function cardCrop(item){return gridView==='reels'?undefined:item.crop;}
+function setGridView(view){
+  if(busy||dragState)return;
+  gridView=view;grid.dataset.view=view;
+  document.getElementById('mainGridBtn').setAttribute('aria-pressed',String(view==='main'));
+  document.getElementById('reelsGridBtn').setAttribute('aria-pressed',String(view==='reels'));
+  document.getElementById('reelsNote').hidden=view!=='reels';renderFullGrid();
+}
+document.getElementById('mainGridBtn').onclick=()=>setGridView('main');
+document.getElementById('reelsGridBtn').onclick=()=>setGridView('reels');
 
 function makeCard(item){
   const card=document.createElement("div");
@@ -675,7 +722,7 @@ function makeCard(item){
   const img=document.createElement("img");
   img.src=urlForFile(item,0);
   img.alt="Публикация";
-  img.onload=()=>paintCrop(img,card,item.crop);
+  img.onload=()=>{const current=items.find(p=>p.id===card.dataset.id);if(current)paintCrop(img,card,cardCrop(current));};
 
   const icon=document.createElement("span");
   applyTypeIcon(icon,item.type||"photo");
@@ -698,15 +745,27 @@ function makeCard(item){
 }
 
 function renderFullGrid(){
-  grid.innerHTML="";
-  if(!items.length){
+  const visible=visibleItems(),ids=new Set(visible.map(p=>p.id));
+  grid.querySelectorAll('.card').forEach(card=>{if(!ids.has(card.dataset.id))card.remove()});
+  grid.querySelectorAll('.empty').forEach(el=>el.remove());
+  if(!visible.length){
     const empty=document.createElement("div");
     empty.className="empty";
     empty.innerHTML=`<svg class="empty-mascot" viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="mascotFill" x2="1" y2="1"><stop stop-color="#FFAD72"/><stop offset="1" stop-color="#E86F3A"/></linearGradient></defs><path fill="url(#mascotFill)" d="M23 81 29 30Q31 13 48 13H73Q89 13 87 30 85 43 71 43H51L49 53H63Q76 53 73 66 71 75 59 75H46L44 84Q43 94 32 92 21 91 23 81Z"/><path d="M54 30q4-8 8 0m9-1q4-8 8 0" fill="none" stroke="#202124" stroke-width="3" stroke-linecap="round"/><circle cx="32" cy="88" r="8" fill="#F5C7A6"/><circle cx="49" cy="89" r="7" fill="#F5C7A6"/></svg><strong>Здесь начинается твоя лента</strong><span>Добавь фотографии и найди их идеальный порядок.</span>`;
+    if(gridView==='reels')empty.innerHTML='<strong>Пока нет обложек Reels</strong><span>Открой публикацию в основной сетке и выбери «Обложка Reels».</span>';
     grid.appendChild(empty);
     return;
   }
-  items.forEach(item=>grid.appendChild(makeCard(item)));
+  const cards=new Map([...grid.querySelectorAll('.card')].map(card=>[card.dataset.id,card]));
+  visible.forEach((item,index)=>{
+    let card=cards.get(item.id);if(!card)card=makeCard(item);
+    card.classList.toggle('editing',editing);
+    const img=card.querySelector('img'),url=urlForFile(item,0);
+    if(img.getAttribute('src')!==url)img.src=url;
+    applyTypeIcon(card.querySelector('.type-icon'),item.type||'photo');
+    if(grid.children[index]!==card)grid.insertBefore(card,grid.children[index]||null);
+    paintCrop(img,card,cardCrop(item));
+  });
 }
 
 /* ---------- V3.3: reliable iPhone/PWA hold-drag + edge auto-scroll ---------- */
@@ -794,11 +853,16 @@ async function finishDrag(){
     const ids=[...grid.querySelectorAll('.card')].map(el=>el.dataset.id);
     window.__feedboardJustDragged=true;
     dragState=null;
-    await mutate(()=>{items.sort((a,b)=>ids.indexOf(a.id)-ids.indexOf(b.id));});
+    await mutate(()=>{reorderVisible(ids)});
     setTimeout(()=>window.__feedboardJustDragged=false,300);
   }else{
     dragState=null;
   }
+}
+
+function reorderVisible(ids){
+  const selected=new Set(ids),byId=new Map(items.map(p=>[p.id,p]));
+  let i=0;items=items.map(p=>selected.has(p.id)?byId.get(ids[i++]):p);
 }
 
 function setupHoldDrag(card,item){
@@ -928,8 +992,8 @@ function renderViewer(){
   if(!files.length)return closeViewer();
   viewerIndex=Math.max(0,Math.min(viewerIndex,files.length-1));
 
-  viewerImage.src=urlForFile(item,viewerIndex);
-  if(item.type!=="carousel"){viewerIndex=0;viewerImage.src=urlForFile(item,0);}
+  if(viewerImage.getAttribute('src')!==urlForFile(item,viewerIndex))viewerImage.src=urlForFile(item,viewerIndex);
+  if(item.type!=="carousel"){viewerIndex=0;if(viewerImage.getAttribute('src')!==urlForFile(item,0))viewerImage.src=urlForFile(item,0);}
   const isMulti=item.type==="carousel"&&files.length>1;
   viewerCounter.textContent=item.type==="carousel"?`${viewerIndex+1} / ${files.length}`:"";
   viewerCounter.style.display=item.type==="carousel"?"block":"none";
@@ -947,6 +1011,9 @@ function renderViewer(){
 
 function renderCarouselStrip(item){
   const files=ensureCarouselFiles(item);
+  const signature=JSON.stringify([item.id,files.map(blobId)]);
+  if(carouselStrip.dataset.signature===signature){carouselStrip.querySelectorAll('.carousel-thumb').forEach((el,i)=>el.classList.toggle('active',i===viewerIndex));return;}
+  carouselStrip.dataset.signature=signature;
   carouselStrip.innerHTML="";
   files.forEach((file,index)=>{
     const thumb=document.createElement("div");
@@ -1068,12 +1135,13 @@ viewerModal.addEventListener("click",(e)=>{
 async function addPosts(input,carousel){
   const files=[...input.files];input.value='';if(!files.length)return;
   if(carousel&&files.length<2){notice('Для новой карусели выбери минимум два фото.');return;}
-  await mutate(async()=>{
+  const ok=await mutate(async()=>{
     const prepared=await prepareImages(files);
     const make=file=>({id:crypto.randomUUID(),project:activeProject,file,type:'photo'});
     const additions=carousel?[{...make(prepared[0]),type:'carousel',carouselFiles:prepared}]:prepared.map(make);
     items=[...additions,...items];
   });
+  if(ok&&gridView==='reels'){setGridView('main');notice('Фотографии добавлены в основную сетку. Тип можно изменить в просмотре публикации.');}
 }
 fileInput.onchange=()=>addPosts(fileInput,false);
 newCarouselInput.onchange=()=>addPosts(newCarouselInput,true);
@@ -1092,8 +1160,8 @@ document.getElementById('editModeBtn').onclick=()=>toggleEditing(!editing);
 document.getElementById('doneBtn').onclick=()=>toggleEditing(false);
 document.getElementById('deletePostBtn').onclick=()=>removePost(selectedItemId);
 document.getElementById('clearBtn').onclick=()=>{
-  if(busy||!items.length||!confirm(`Удалить все публикации из «${activeProject}»? Сначала рекомендуем скачать резервную копию.`))return;
-  mutate(()=>{const ids=items.map(x=>x.id);items=[];return ids;});
+  if(busy||!items.length||!confirm(`Удалить все публикации из «${projectLabel(activeProject)}»? Сначала рекомендуем скачать резервную копию.`))return;
+  mutate(()=>{const ids=items.map(x=>x.id);items=[];return ids;}).then(ok=>{if(ok)clearUndo()});
 };
 
 /* Crop metadata only: the original stored image is never overwritten. */
@@ -1125,7 +1193,7 @@ document.getElementById('cropCancel').onclick=()=>cropModal.classList.remove('op
 document.getElementById('cropSave').onclick=async()=>{
   if(await mutate(()=>{items.find(x=>x.id===cropTarget).crop={...cropDraft}}))cropModal.classList.remove('open');
 };
-window.addEventListener('resize',()=>{grid.querySelectorAll('.card').forEach(card=>{const item=items.find(x=>x.id===card.dataset.id);paintCrop(card.querySelector('img'),card,item?.crop)});paintCrop(cropImage,cropFrame,cropDraft)});
+window.addEventListener('resize',()=>{grid.querySelectorAll('.card').forEach(card=>{const item=items.find(x=>x.id===card.dataset.id);paintCrop(card.querySelector('img'),card,item?cardCrop(item):undefined)});paintCrop(cropImage,cropFrame,cropDraft)});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){cropModal.classList.remove('open');closeViewer()}});
 
 /* Versioned offline backup. Import validates completely before atomic replacement. */
@@ -1133,15 +1201,17 @@ function readDataURL(blob){return new Promise((resolve,reject)=>{const r=new Fil
 function download(blob,name){const a=document.createElement('a'),url=URL.createObjectURL(blob);a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000)}
 document.getElementById('exportBtn').onclick=async()=>{
   if(busy||dragState)return;lock(true);notice('');
-  try{const all=await getAllPosts(),posts=[];for(const item of all){const files=[];for(const file of mediaFiles(item))files.push({name:file.name||'photo',data:await readDataURL(file)});
+  try{const snapshot=await readSnapshot(),all=snapshot.posts,posts=[];for(const item of all){const files=[];for(const file of mediaFiles(item))files.push({name:file.name||'photo',data:await readDataURL(file)});
     posts.push({id:item.id,project:item.project,order:item.order,type:item.type,crop:item.crop,files});}
-    const backupBlob=new Blob([JSON.stringify({format:'feedboard-backup',version:1,createdAt:new Date().toISOString(),posts})],{type:'application/json'});
+    const backupBlob=new Blob([JSON.stringify({format:'feedboard-backup',version:1,createdAt:new Date().toISOString(),projectNames:snapshot.state.projectNames||{},posts})],{type:'application/json'});
     download(backupBlob,'feedboard-backup-'+new Date().toISOString().slice(0,10)+'.json');
-    notice('Копия подготовлена. Сохрани ее в «Файлы». Если скачивание не началось, нажми ссылку ниже.','success',true);
-    const link=document.createElement('a');
-    const backupUrl=URL.createObjectURL(backupBlob);link.href=backupUrl;link.download='feedboard-backup-'+new Date().toISOString().slice(0,10)+'.json';link.textContent='Скачать копию';link.style.cssText='display:block;color:inherit;text-decoration:underline;padding:12px 0';link.onclick=e=>e.stopPropagation();message.append(link);setTimeout(()=>URL.revokeObjectURL(backupUrl),300000);
+    notice('Копия подготовлена. Сохрани ее в «Файлы». Можно скачать еще раз.','success',true);
+    const link=document.createElement('button');link.type='button';link.textContent='Скачать копию еще раз';link.className='backup-shortcut';
+    link.onclick=()=>download(backupBlob,'feedboard-backup-'+new Date().toISOString().slice(0,10)+'.json');message.append(link);
+
   }catch(e){fail(e)}finally{lock(false)}
 };
+document.getElementById('backupShortcut').onclick=()=>document.getElementById('exportBtn').onclick();
 function validateBackupImage(file,label){
   return new Promise((resolve,reject)=>{
     const img=new Image();let url=null,finished=false;
@@ -1164,6 +1234,7 @@ document.getElementById('backupInput').onchange=async e=>{
     if(importStart.generation!==loadedGeneration)throw new Error('Данные восстановлены в другом окне. Обнови эту вкладку перед импортом.');
     if(file.size>300*1024*1024)throw new Error('Копия больше 300 МБ. Не удалось открыть ее безопасно на этом устройстве.');
     const data=JSON.parse(await file.text());if(data.format!=='feedboard-backup'||data.version!==1||!Array.isArray(data.posts))throw new Error('Это не поддерживаемая резервная копия Feedboard.');
+    const names=data.projectNames===undefined?{}:validateProjectNames(data.projectNames);
     const posts=[],ids=new Set();
     for(const p of data.posts){
       if(typeof p.id!=='string'||!/^[a-zA-Z0-9_-]{1,100}$/.test(p.id)||ids.has(p.id)||!PROJECTS.includes(p.project)||!['photo','carousel','reel'].includes(p.type)||!Number.isInteger(p.order)||p.order<0||!Array.isArray(p.files)||!p.files.length)throw new Error('Копия повреждена: неверные данные публикации.');ids.add(p.id);
@@ -1176,9 +1247,36 @@ document.getElementById('backupInput').onchange=async e=>{
       posts.push({id:p.id,project:p.project,order:p.order,type:p.type,crop:p.crop,file:files[0],carouselFiles:files});
     }
     if(!confirm('Восстановление заменит все три проекта содержимым копии. Продолжить?'))return;
-    await writeChanges(posts,[],null,null,importStart);closeViewer();await loadProject();statusEl.textContent='Сохранено';notice('Все проекты восстановлены.');
+    await writeChanges(posts,[],null,null,importStart,{projectNames:names});clearUndo();closeViewer();await loadProject();statusEl.textContent='Сохранено';notice('Все проекты восстановлены.');
   }catch(e){fail(e)}finally{lock(false)}
 };
+function validateProjectNames(names){
+  if(!names||typeof names!=='object'||Array.isArray(names))throw new Error('В копии повреждены названия проектов.');
+  const result={};
+  for(const id of Object.keys(names)){
+    if(!PROJECTS.includes(id)||typeof names[id]!=='string'||!names[id].trim()||names[id].length>30)throw new Error('В копии повреждены названия проектов.');
+    result[id]=names[id].trim();
+  }return result;
+}
+const renameModal=document.getElementById('renameModal'),projectName=document.getElementById('projectName');
+let renameTarget=null,renameState=null;
+document.getElementById('renameBtn').onclick=async()=>{
+  if(busy||dragState)return;lock(true);
+  try{renameState=(await readSnapshot()).state;
+    if(renameState.generation!==loadedGeneration)throw new Error('Данные восстановлены в другом окне. Обнови вкладку.');
+    renameTarget=activeProject;projectName.value=projectLabel(renameTarget);renameModal.classList.add('open');projectName.focus();projectName.select();menu.classList.remove('open');
+  }catch(e){fail(e)}finally{lock(false)}
+};
+document.getElementById('renameCancel').onclick=()=>renameModal.classList.remove('open');
+document.getElementById('renameForm').onsubmit=async e=>{
+  e.preventDefault();if(busy||!renameTarget)return;lock(true);
+  try{
+    const names=validateProjectNames({...renameState.projectNames,[renameTarget]:projectName.value.trim()});
+    await writeChanges([],[],null,null,null,{expectedState:renameState,projectNames:names});
+    projectNames=names;renderProjects();renameModal.classList.remove('open');notice('Название сохранено.');
+  }catch(e){fail(e)}finally{lock(false)}
+};
+document.addEventListener('keydown',e=>{if(e.key==='Escape')renameModal.classList.remove('open')});
 window.addEventListener('beforeunload',e=>{if(busy){e.preventDefault();e.returnValue=''}});
 renderProjects();
 (async()=>{lock(true);try{await loadProject()}catch(e){fail(e)}finally{lock(false)}})();
