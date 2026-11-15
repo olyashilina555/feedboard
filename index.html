@@ -337,6 +337,7 @@ button:focus-visible,label:focus-within{outline:2px solid var(--accent);outline-
 #undoNotice{position:fixed;bottom:max(16px,env(safe-area-inset-bottom));left:12px;right:12px;max-width:680px;margin:auto;z-index:1200;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:8px 12px;display:flex;align-items:center;gap:8px;box-shadow:0 6px 24px #0002;font-size:12px}#undoNotice[hidden]{display:none}#undoText{flex:1}#undoNotice button{min-height:44px;border:0;background:transparent;color:var(--accent-ink);font:inherit;font-weight:700}#undoClose{min-width:44px}
 #projectName{display:block;width:100%;box-sizing:border-box;margin:12px 0;padding:12px;font:inherit;background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:10px}
 @media(max-width:359px){.viewer-type{font-size:11px}.project-btn{padding:10px 5px}}
+.storage-help{font-size:12px;color:var(--muted);margin:8px 0}.storage-help summary{min-height:44px;display:flex;align-items:center;justify-content:center;cursor:pointer}.storage-help p{line-height:1.5}#reelVisibility{display:flex;align-items:center;gap:10px;min-height:44px}#reelVisibility[hidden]{display:none}#showInMain{width:22px;height:22px;accent-color:var(--accent)}#cropZoom{touch-action:none}#cropModal .viewer-sheet{overscroll-behavior:contain}#cropModes button[aria-pressed="true"]{border-color:var(--accent)}.carousel-thumb img{touch-action:pan-x;user-select:none;-webkit-user-drag:none;-webkit-touch-callout:none}.carousel-thumb.drag-target{outline:2px solid var(--accent)}.carousel-thumb.drag-source{opacity:.45}.carousel-drag-ghost{position:fixed;pointer-events:none;z-index:150;width:74px;height:90px;object-fit:cover;border:2px solid var(--accent);border-radius:8px}
 </style>
 </head>
 <body>
@@ -344,7 +345,7 @@ button:focus-visible,label:focus-within{outline:2px solid var(--accent);outline-
   <header class="header">
     <div>
       <h1><svg class="brand-mark" viewBox="0 0 48 52" aria-hidden="true"><g fill="currentColor" transform="skewX(-12)"><rect x="13" y="3" width="34" height="14" rx="5"/><rect x="13" y="20" width="15" height="13" rx="4"/><rect x="31" y="20" width="13" height="13" rx="4"/><rect x="13" y="36" width="15" height="13" rx="4"/></g></svg><span>feedboard</span></h1>
-      <p class="subtitle">Визуальный планировщик · V3.7.0</p>
+      <p class="subtitle">Визуальный планировщик · V3.7.1</p>
     </div>
     <div class="header-actions">
       <button id="themeBtn" class="icon-btn" aria-label="Сменить тему">☾</button>
@@ -379,8 +380,8 @@ button:focus-visible,label:focus-within{outline:2px solid var(--accent);outline-
     <button id="doneBtn" class="cancel" hidden>Готово</button><div id="message" role="status" aria-live="polite"></div><div class="grid-tabs" aria-label="Вид ленты"><button id="mainGridBtn" aria-pressed="true">Основная сетка</button><button id="reelsGridBtn" aria-pressed="false">Reels</button></div><p id="reelsNote" class="viewer-note" hidden>Здесь только обложки Reels, без видео. Кадрирование основной сетки сохраняется отдельно от этого просмотра.</p><div id="grid" class="grid"></div><div id="undoNotice" role="status" hidden><span id="undoText"></span><button id="undoBtn">Отменить</button><button id="undoClose" aria-label="Закрыть отмену">×</button></div>
 
     <p class="bottom-note">
-      Фото и проекты хранятся на этом устройстве, без синхронизации. Сохраняй резервную копию перед очисткой браузера.
-    </p><button id="backupShortcut" class="backup-shortcut">Скачать резервную копию</button>
+      Фото и проекты хранятся на этом устройстве, без синхронизации. Браузер и значок на главном экране могут хранить разные ленты.
+    </p><details class="storage-help"><summary>Как сохранить и перенести ленту</summary><p>1. Открой Feedboard там, где видны нужные фото. Скачай резервную копию и сохрани JSON в «Файлы».</p><p>2. Открой Feedboard в другом браузере или со значка на главном экране. Если там уже есть фото, сначала скачай и эту копию под другим именем.</p><p>3. Меню → «Восстановить из копии». Импорт заменит все три проекта. Проверь фото и порядок после повторного открытия.</p><p>Это ручной перенос, без синхронизации. Пустая лента в другом окне не означает, что прежние фото удалены. Не очищай данные браузера и не удаляй веб-приложение без проверенной копии. Для надежной работы открывай сайт напрямую в Chrome или Safari, а не внутри Telegram.</p></details><button id="backupShortcut" class="backup-shortcut">Скачать резервную копию</button>
   </section>
 </main>
 
@@ -407,7 +408,7 @@ button:focus-visible,label:focus-within{outline:2px solid var(--accent);outline-
       </div>
     </div>
 
-    <div class="viewer-section viewer-actions"><button id="cropBtn" class="cancel">Кадрировать обложку</button><button id="deletePostBtn" class="cancel danger">Удалить публикацию</button></div>
+    <label id="reelVisibility" class="viewer-note" hidden><input id="showInMain" type="checkbox"> Показывать в основной сетке</label><div class="viewer-section viewer-actions"><button id="cropBtn" class="cancel">Кадрировать обложку</button><button id="deletePostBtn" class="cancel danger">Удалить публикацию</button></div>
     <div id="carouselTools" class="carousel-tools">
       <input id="carouselInput" type="file" accept="image/*" multiple>
       <label class="carousel-add" for="carouselInput">+ Добавить фото в карусель</label>
@@ -417,7 +418,7 @@ button:focus-visible,label:focus-within{outline:2px solid var(--accent);outline-
   </div>
 </div>
 
-<div id="cropModal" class="viewer-backdrop" role="dialog" aria-modal="true" aria-label="Обложка в сетке"><div class="viewer-sheet"><h3>Обложка в основной сетке</h3><p class="viewer-note">Передвигай фото пальцем. Масштаб меняется ползунком. Исходное изображение остается без изменений.</p><div id="cropFrame"><img id="cropImage" alt="Обложка"></div><label>Масштаб <input id="cropZoom" type="range" min="1" max="3" step="0.01" value="1"></label><button id="cropSave" class="cancel">Сохранить обложку</button><button id="cropReset" class="cancel">По центру</button><button id="cropCancel" class="cancel">Отмена</button></div></div>
+<div id="cropModal" class="viewer-backdrop" role="dialog" aria-modal="true" aria-label="Обложка в сетке"><div class="viewer-sheet"><h3 id="cropTitle">Обложка в основной сетке</h3><div id="cropModes" hidden><button type="button" id="cropMain" class="cancel">Основная · 3:4</button><button type="button" id="cropReels" class="cancel">Reels · 9:16</button></div><p class="viewer-note">Передвигай фото пальцем. Масштаб меняется ползунком. Исходное изображение остается без изменений.</p><div id="cropFrame"><img id="cropImage" alt="Обложка"></div><label>Масштаб <input id="cropZoom" type="range" min="1" max="3" step="0.01" value="1"></label><button id="cropSave" class="cancel">Сохранить обложку</button><button id="cropReset" class="cancel">По центру</button><button id="cropCancel" class="cancel">Отмена</button></div></div>
 <div id="renameModal" class="viewer-backdrop" role="dialog" aria-modal="true" aria-labelledby="renameTitle"><form id="renameForm" class="viewer-sheet"><h3 id="renameTitle">Название проекта</h3><label for="projectName">До 30 символов</label><input id="projectName" type="text" maxlength="30" required autocomplete="off"><button class="cancel" type="submit">Сохранить название</button><button id="renameCancel" class="cancel" type="button">Отмена</button></form></div>
 <script>
 const DB_NAME="feedboard-v2-db";
@@ -553,16 +554,16 @@ function notice(text,kind='info',persistent=false){
 }
 
 function lock(value){
-  busy=value;document.body.classList.toggle('busy',value);
-  document.querySelectorAll('button,input[type=file]').forEach(b=>{b.disabled=value});
+  busy=value;if(value)cancelCarouselDrag();document.body.classList.toggle('busy',value);
+  document.querySelectorAll('button,input[type=file],input[type=checkbox],input[type=range]').forEach(b=>{b.disabled=value});
   if(!value&&selectedItem())renderViewer();
 }
 function fail(err){
   console.error(err);statusEl.textContent='Не сохранено';
   notice(err.name==='QuotaExceededError'?'Недостаточно места. Скачай резервную копию и освободи место на устройстве.':(err.message||'Не удалось сохранить. Попробуй еще раз.'),'error');
 }
-function cloneItems(list){return list.map(x=>({...x,carouselFiles:x.carouselFiles?[...x.carouselFiles]:undefined,crop:x.crop?{...x.crop}:undefined}));}
-function fingerprint(x){return JSON.stringify([x.project,x.order,x.type,x.crop,mediaFiles(x).map(f=>blobId(f))]);}
+function cloneItems(list){return list.map(x=>({...x,carouselFiles:x.carouselFiles?[...x.carouselFiles]:undefined,crop:x.crop?{...x.crop}:undefined,reelsCrop:x.reelsCrop?{...x.reelsCrop}:undefined}));}
+function fingerprint(x){return JSON.stringify([x.project,x.order,x.type,x.crop,x.reelsCrop,x.showInMain,mediaFiles(x).map(f=>blobId(f))]);}
 const blobIds=new WeakMap();let nextBlobId=0;
 function blobId(blob){if(!blobIds.has(blob))blobIds.set(blob,++nextBlobId);return blobIds.get(blob);}
 function remember(){committed=new Map(items.map(x=>[x.id,fingerprint(x)]));baseline=items.map(x=>[x.id,x._fbRevision||0]);}
@@ -702,8 +703,8 @@ function applyTypeIcon(icon,type){
   if(type==='reel'){icon.classList.add('reel-icon');icon.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="2" width="20" height="20" rx="5" fill="white"/><path d="m10 7 7 5-7 5Z" fill="#202124"/></svg>';}
   if(type==='carousel'){icon.classList.add('carousel-icon');icon.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M9 3h9a3 3 0 0 1 3 3v9"/><rect x="3" y="7" width="14" height="14" rx="3"/></svg>';}
 }
-function visibleItems(){return gridView==='reels'?items.filter(p=>p.type==='reel'):items;}
-function cardCrop(item){return gridView==='reels'?undefined:item.crop;}
+function visibleItems(){return gridView==='reels'?items.filter(p=>p.type==='reel'):items.filter(p=>p.type!=='reel'||p.showInMain!==false);}
+function cardCrop(item){return gridView==='reels'?item.reelsCrop:item.crop;}
 function setGridView(view){
   if(busy||dragState)return;
   gridView=view;grid.dataset.view=view;
@@ -978,6 +979,7 @@ function openViewer(id){
 }
 
 function closeViewer(){
+  cancelCarouselDrag();
   viewerModal.classList.remove("open");
   selectedItemId=null;
   viewerIndex=0;
@@ -1004,6 +1006,8 @@ function renderViewer(){
     btn.classList.toggle("active",btn.dataset.type===(item.type||"photo"));
   });
 
+  document.getElementById('reelVisibility').hidden=item.type!=='reel';
+  document.getElementById('showInMain').checked=item.showInMain!==false;
   const carousel=item.type==="carousel";
   carouselTools.classList.toggle("show",carousel);
   if(carousel)renderCarouselStrip(item);
@@ -1013,7 +1017,7 @@ function renderCarouselStrip(item){
   const files=ensureCarouselFiles(item);
   const signature=JSON.stringify([item.id,files.map(blobId)]);
   if(carouselStrip.dataset.signature===signature){carouselStrip.querySelectorAll('.carousel-thumb').forEach((el,i)=>el.classList.toggle('active',i===viewerIndex));return;}
-  carouselStrip.dataset.signature=signature;
+  cancelCarouselDrag();carouselStrip.dataset.signature=signature;
   carouselStrip.innerHTML="";
   files.forEach((file,index)=>{
     const thumb=document.createElement("div");
@@ -1021,9 +1025,9 @@ function renderCarouselStrip(item){
 
     const img=document.createElement("img");
     img.src=urlForFile(item,index);
-    img.alt=`Фото ${index+1}`;
+    img.alt=`Фото ${index+1}`;img.draggable=false;attachCarouselDrag(img,thumb,item,index);
     img.addEventListener("click",()=>{
-      viewerIndex=index;
+      if(Date.now()<carouselSuppressClick)return;viewerIndex=index;
       renderViewer();
     });
 
@@ -1060,12 +1064,57 @@ function renderCarouselStrip(item){
   });
 }
 
+let carouselDrag=null,carouselSuppressClick=0;
+function cancelCarouselDrag(){
+  if(!carouselDrag)return;clearTimeout(carouselDrag.timer);clearInterval(carouselDrag.scrollTimer);
+  if(carouselDrag.ghost)carouselDrag.ghost.remove();
+  carouselStrip.querySelectorAll('.carousel-thumb').forEach(el=>el.classList.remove('drag-source','drag-target'));
+  carouselDrag=null;
+}
+window.addEventListener('pagehide',cancelCarouselDrag);
+document.addEventListener('visibilitychange',()=>{if(document.hidden)cancelCarouselDrag()});
+function attachCarouselDrag(img,thumb,item,index){
+  img.addEventListener('contextmenu',e=>e.preventDefault());
+  function start(x,y){
+    if(busy||dragState||carouselDrag)return;
+    const state={item,from:index,to:index,x,y,startX:x,startY:y,active:false,thumb};carouselDrag=state;
+    state.timer=setTimeout(()=>{
+      if(carouselDrag!==state||busy||selectedItemId!==item.id)return cancelCarouselDrag();
+      state.active=true;carouselSuppressClick=Date.now()+600;thumb.classList.add('drag-source');
+      const ghost=document.createElement('img');ghost.src=img.src;ghost.className='carousel-drag-ghost';ghost.alt='';document.body.append(ghost);state.ghost=ghost;move(x,y);
+      state.scrollTimer=setInterval(()=>{if(carouselDrag!==state)return;const r=carouselStrip.getBoundingClientRect();if(state.x<r.left+35)carouselStrip.scrollLeft-=8;else if(state.x>r.right-35)carouselStrip.scrollLeft+=8;move(state.x,state.y)},30);
+    },320);
+  }
+  function move(x,y){
+    const state=carouselDrag;if(!state||state.thumb!==thumb)return;
+    state.x=x;state.y=y;
+    if(!state.active){if(Math.hypot(x-state.startX,y-state.startY)>10)cancelCarouselDrag();return;}
+    state.ghost.style.left=(x-37)+'px';state.ghost.style.top=(y-45)+'px';
+    const hit=document.elementFromPoint(x,y),target=hit&&hit.closest('.carousel-thumb');
+    if(target&&carouselStrip.contains(target))state.to=[...carouselStrip.children].indexOf(target);
+    carouselStrip.querySelectorAll('.carousel-thumb').forEach((el,i)=>el.classList.toggle('drag-target',i===state.to));
+  }
+  async function end(cancelled){
+    const state=carouselDrag;if(!state||state.thumb!==thumb)return;
+    const active=state.active;cancelCarouselDrag();
+    if(active){carouselSuppressClick=Date.now()+600;if(!cancelled&&selectedItemId===item.id)await moveCarouselImage(item,state.from,state.to);}
+  }
+  img.addEventListener('touchstart',e=>{if(e.touches.length!==1)return cancelCarouselDrag();const t=e.touches[0];start(t.clientX,t.clientY)},{passive:true});
+  img.addEventListener('touchmove',e=>{if(e.touches.length!==1)return cancelCarouselDrag();if(carouselDrag&&carouselDrag.active)e.preventDefault();const t=e.touches[0];move(t.clientX,t.clientY)},{passive:false});
+  img.addEventListener('touchend',e=>{if(carouselDrag&&carouselDrag.active)e.preventDefault();end(false)},{passive:false});
+  img.addEventListener('touchcancel',()=>end(true));
+  img.addEventListener('pointerdown',e=>{if(e.pointerType==='touch'||e.button!==0)return;e.preventDefault();img.setPointerCapture?.(e.pointerId);start(e.clientX,e.clientY)});
+  img.addEventListener('pointermove',e=>{if(e.pointerType!=='touch')move(e.clientX,e.clientY)});
+  img.addEventListener('pointerup',e=>{if(e.pointerType!=='touch')end(false)});
+  img.addEventListener('pointercancel',e=>{if(e.pointerType!=='touch')end(true)});
+}
+
 async function moveCarouselImage(item,from,to){
   return mutate(()=>{
     const current=items.find(x=>x.id===item.id);const files=ensureCarouselFiles(current);
     if(to<0||to>=files.length||from===to)return;
     const old=files[0];const [moved]=files.splice(from,1);files.splice(to,0,moved);current.file=files[0];
-    if(old!==files[0])delete current.crop;viewerIndex=to;
+    if(old!==files[0]){delete current.crop;delete current.reelsCrop;}viewerIndex=to;
   });
 }
 
@@ -1101,30 +1150,61 @@ document.querySelectorAll('.viewer-type').forEach(btn=>{
   btn.onclick=()=>mutate(()=>{const item=selectedItem();if(!item)return;item.type=btn.dataset.type;if(item.type==='carousel')ensureCarouselFiles(item);viewerIndex=0;});
 });
 
+document.getElementById('showInMain').onchange=e=>mutate(()=>{const item=selectedItem();if(item&&item.type==='reel')item.showInMain=e.target.checked;});
+
+function detectImageType(b,declared){
+  const ascii=(a,n)=>String.fromCharCode(...b.slice(a,a+n));
+  if(b[0]===255&&b[1]===216&&b[2]===255)return 'image/jpeg';
+  if(b[0]===137&&ascii(1,3)==='PNG'&&b[4]===13&&b[5]===10&&b[6]===26&&b[7]===10)return 'image/png';
+  if(ascii(0,4)==='RIFF'&&ascii(8,4)==='WEBP')return 'image/webp';
+  if(['GIF87a','GIF89a'].includes(ascii(0,6)))return 'image/gif';
+  if(ascii(4,4)==='ftyp'&&['heic','heix','hevc','hevx','mif1','msf1','avif','avis'].includes(ascii(8,4)))return ['avif','avis'].includes(ascii(8,4))?'image/avif':'image/heic';
+  return null;
+}
+function loadImageSource(src){return new Promise((resolve,reject)=>{
+  const img=new Image();let done=false;
+  const finish=error=>{if(done)return;done=true;clearTimeout(timer);img.onload=img.onerror=null;if(error){img.removeAttribute('src');reject(error)}else resolve(img)};
+  const timer=setTimeout(()=>finish(new Error('Чтение фото заняло слишком долго.')),20000);
+  img.onload=()=>finish(img.naturalWidth>0&&img.naturalHeight>0?null:new Error('Пустое изображение.'));
+  img.onerror=()=>finish(new Error('Браузер не смог прочитать изображение.'));
+  img.src=src;
+})}
+async function decodeUploadImage(blob){
+  // In-memory Blob avoids Android content-provider handles; data URL fallback avoids broken blob URL decoders in embedded browsers.
+  let url;
+  try{url=URL.createObjectURL(blob);return await loadImageSource(url)}
+  catch(error){try{return await loadImageSource(await readDataURL(blob))}catch(fallback){throw new Error('Не удалось прочитать выбранное фото. Попробуй скачать его на устройство и открыть Feedboard в Chrome или Safari. HEIC поддерживается не во всех браузерах.')}}
+  finally{if(url)URL.revokeObjectURL(url)}
+}
+
 async function prepareImages(files){
   if(files.length>40)throw new Error('Добавляй не больше 40 фотографий за один раз.');
   const out=[];
   for(let i=0;i<files.length;i++){
     const file=files[i];statusEl.textContent=`Фото ${i+1}/${files.length}`;
     if(file.size>40*1024*1024)throw new Error('Фотография больше 40 МБ. Выбери уменьшенную копию.');
-    if(!file.type.startsWith('image/')||file.type==='image/svg+xml')throw new Error('Выбери фотографии JPEG, PNG или WebP. HEIC можно использовать, если его поддерживает браузер.');
-    const url=URL.createObjectURL(file);const img=new Image();
+    const bytes=await readBytes(file),type=detectImageType(new Uint8Array(bytes),file.type);
+    if(!type)throw new Error('Выбери фото JPEG, PNG, WebP, GIF или поддерживаемый HEIC. Видео пока не поддерживается.');
+    const local=new Blob([bytes],{type});let img=null;
     try{
-      await new Promise((resolve,reject)=>{img.onload=resolve;img.onerror=()=>reject(new Error('Не удалось открыть фото. Попробуй сохранить его в JPEG.'));img.src=url;});
+      img=await decodeUploadImage(local);
       const scale=Math.min(1,2000/Math.max(img.naturalWidth,img.naturalHeight));
       const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(img.naturalWidth*scale));canvas.height=Math.max(1,Math.round(img.naturalHeight*scale));
-      const ctx=canvas.getContext('2d');ctx.drawImage(img,0,0,canvas.width,canvas.height);
-      const type=file.type==='image/png'?'image/png':'image/jpeg';
-      const blob=await new Promise(r=>canvas.toBlob(r,type,.88));
-      if(!blob)throw new Error('Не удалось подготовить фотографию.');
-      out.push(new File([blob],file.name.replace(/\.[^.]+$/,'')+(type==='image/png'?'.png':'.jpg'),{type}));canvas.width=canvas.height=1;
-    }finally{URL.revokeObjectURL(url);}
+      try{
+        const ctx=canvas.getContext('2d');if(!ctx)throw new Error('Не удалось подготовить фото: браузер не поддерживает обработку изображений.');
+        ctx.drawImage(img,0,0,canvas.width,canvas.height);
+        const outputType=type==='image/png'?'image/png':'image/jpeg';
+        const blob=await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(new Error('Обработка фото заняла слишком долго. Попробуй файл поменьше.')),20000);canvas.toBlob(b=>{clearTimeout(timer);b?resolve(b):reject(new Error('Не удалось подготовить фотографию.'))},outputType,.88)});
+        out.push(new File([blob],file.name.replace(/\.[^.]+$/,'')+(outputType==='image/png'?'.png':'.jpg'),{type:outputType}));
+      }finally{canvas.width=canvas.height=1;}
+    }finally{if(img)img.removeAttribute('src');}
+
   }return out;
 }
 carouselInput.onchange=async e=>{
-  const files=[...e.target.files];const id=selectedItemId;e.target.value='';if(!files.length)return;
+  const files=[...e.target.files];const id=selectedItemId;if(!files.length)return;
   await mutate(async()=>{const processed=await prepareImages(files);const item=items.find(x=>x.id===id);if(!item)throw new Error('Публикация не найдена');
-    const list=ensureCarouselFiles(item);viewerIndex=list.length;list.push(...processed);item.file=list[0];item.type='carousel';});
+    const list=ensureCarouselFiles(item);viewerIndex=list.length;list.push(...processed);item.file=list[0];item.type='carousel';});e.target.value='';
 };
 
 document.getElementById("viewerClose").addEventListener("click",closeViewer);
@@ -1133,14 +1213,15 @@ viewerModal.addEventListener("click",(e)=>{
 });
 
 async function addPosts(input,carousel){
-  const files=[...input.files];input.value='';if(!files.length)return;
-  if(carousel&&files.length<2){notice('Для новой карусели выбери минимум два фото.');return;}
+  const files=[...input.files];if(!files.length)return;
+  if(carousel&&files.length<2){input.value='';notice('Для новой карусели выбери минимум два фото.');return;}
   const ok=await mutate(async()=>{
     const prepared=await prepareImages(files);
     const make=file=>({id:crypto.randomUUID(),project:activeProject,file,type:'photo'});
     const additions=carousel?[{...make(prepared[0]),type:'carousel',carouselFiles:prepared}]:prepared.map(make);
     items=[...additions,...items];
   });
+  input.value='';
   if(ok&&gridView==='reels'){setGridView('main');notice('Фотографии добавлены в основную сетку. Тип можно изменить в просмотре публикации.');}
 }
 fileInput.onchange=()=>addPosts(fileInput,false);
@@ -1166,7 +1247,9 @@ document.getElementById('clearBtn').onclick=()=>{
 
 /* Crop metadata only: the original stored image is never overwritten. */
 const cropModal=document.getElementById('cropModal'),cropImage=document.getElementById('cropImage'),cropFrame=document.getElementById('cropFrame'),cropZoom=document.getElementById('cropZoom');
-let cropDraft={z:1,x:.5,y:.5};let cropTarget=null;
+let cropDraft={z:1,x:.5,y:.5};let cropTarget=null,cropMode='main',cropDrafts=null;
+function chooseCropMode(mode){if(!cropDrafts)return;cropDrafts[cropMode]={...cropDraft};cropMode=mode;cropDraft={...cropDrafts[mode]};cropZoom.value=cropDraft.z;cropFrame.style.aspectRatio=mode==='reels'?'9/16':'3/4';document.getElementById('cropTitle').textContent=mode==='reels'?'Обложка в сетке Reels':'Обложка в основной сетке';for(const [id,m] of [['cropMain','main'],['cropReels','reels']])document.getElementById(id).setAttribute('aria-pressed',String(mode===m));paintCrop(cropImage,cropFrame,cropDraft);}
+document.getElementById('cropMain').onclick=()=>chooseCropMode('main');document.getElementById('cropReels').onclick=()=>chooseCropMode('reels');
 function paintCrop(img,frame,crop){
   if(!img.naturalWidth)return;
   const c=crop||{z:1,x:.5,y:.5};const w=frame.clientWidth,h=frame.clientHeight;
@@ -1175,34 +1258,35 @@ function paintCrop(img,frame,crop){
   Object.assign(img.style,{width:iw+'px',height:ih+'px',left:(w-iw)*(c.x??.5)+'px',top:(h-ih)*(c.y??.5)+'px',objectFit:'fill'});
 }
 document.getElementById('cropBtn').onclick=()=>{
-  const item=selectedItem();if(!item||busy)return;cropTarget=item.id;cropDraft={z:1,x:.5,y:.5,...item.crop};cropZoom.value=cropDraft.z;cropModal.classList.add('open');cropImage.src=urlForFile(item,0);paintCrop(cropImage,cropFrame,cropDraft);
+  const item=selectedItem();if(!item||busy)return;cropTarget=item.id;cropMode='main';cropDraft={z:1,x:.5,y:.5,...item.crop};cropDrafts={main:{...cropDraft},reels:{z:1,x:.5,y:.5,...item.reelsCrop}};document.getElementById('cropModes').hidden=item.type!=='reel';chooseCropMode(item.type==='reel'?gridView:'main');cropModal.classList.add('open');cropImage.src=urlForFile(item,0);paintCrop(cropImage,cropFrame,cropDraft);
 };
 cropImage.onload=()=>paintCrop(cropImage,cropFrame,cropDraft);
 cropZoom.oninput=()=>{cropDraft.z=Number(cropZoom.value);paintCrop(cropImage,cropFrame,cropDraft)};
 let cropPointer=null;
-cropFrame.onpointerdown=e=>{cropPointer={x:e.clientX,y:e.clientY};cropFrame.setPointerCapture(e.pointerId)};
+cropFrame.onpointerdown=e=>{if(busy||e.isPrimary===false)return;e.preventDefault();e.stopPropagation();cropPointer={x:e.clientX,y:e.clientY};if(cropFrame.setPointerCapture)cropFrame.setPointerCapture(e.pointerId)};
 cropFrame.onpointermove=e=>{
   if(!cropPointer)return;const dx=e.clientX-cropPointer.x,dy=e.clientY-cropPointer.y;cropPointer={x:e.clientX,y:e.clientY};
   const overflowX=parseFloat(cropImage.style.width)-cropFrame.clientWidth,overflowY=parseFloat(cropImage.style.height)-cropFrame.clientHeight;
   if(overflowX>0)cropDraft.x=Math.max(0,Math.min(1,cropDraft.x-dx/overflowX));
   if(overflowY>0)cropDraft.y=Math.max(0,Math.min(1,cropDraft.y-dy/overflowY));paintCrop(cropImage,cropFrame,cropDraft);
 };
-cropFrame.onpointerup=cropFrame.onpointercancel=()=>cropPointer=null;
+cropFrame.onpointerup=cropFrame.onpointercancel=cropFrame.onlostpointercapture=()=>cropPointer=null;
+for(const event of ['pointerdown','pointermove','pointerup','touchstart','touchmove'])cropZoom.addEventListener(event,e=>e.stopPropagation(),{passive:true});
 document.getElementById('cropReset').onclick=()=>{cropDraft={z:1,x:.5,y:.5};cropZoom.value=1;paintCrop(cropImage,cropFrame,cropDraft)};
 document.getElementById('cropCancel').onclick=()=>cropModal.classList.remove('open');
 document.getElementById('cropSave').onclick=async()=>{
-  if(await mutate(()=>{items.find(x=>x.id===cropTarget).crop={...cropDraft}}))cropModal.classList.remove('open');
+  if(await mutate(()=>{const item=items.find(x=>x.id===cropTarget);if(!item)throw new Error('Публикация не найдена');cropDrafts[cropMode]={...cropDraft};item.crop={...cropDrafts.main};if(item.type==='reel')item.reelsCrop={...cropDrafts.reels}}))cropModal.classList.remove('open');
 };
 window.addEventListener('resize',()=>{grid.querySelectorAll('.card').forEach(card=>{const item=items.find(x=>x.id===card.dataset.id);paintCrop(card.querySelector('img'),card,item?cardCrop(item):undefined)});paintCrop(cropImage,cropFrame,cropDraft)});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){cropModal.classList.remove('open');closeViewer()}});
 
 /* Versioned offline backup. Import validates completely before atomic replacement. */
-function readDataURL(blob){return new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=()=>reject(r.error);r.readAsDataURL(blob)})}
+function readDataURL(blob){return new Promise((resolve,reject)=>{const r=new FileReader();const timer=setTimeout(()=>{r.abort();reject(new Error('Чтение файла заняло слишком долго.'))},20000);r.onload=()=>{clearTimeout(timer);resolve(r.result)};r.onerror=r.onabort=()=>{clearTimeout(timer);reject(r.error||new Error('Чтение файла прервано.'))};r.readAsDataURL(blob)})}
 function download(blob,name){const a=document.createElement('a'),url=URL.createObjectURL(blob);a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000)}
 document.getElementById('exportBtn').onclick=async()=>{
   if(busy||dragState)return;lock(true);notice('');
   try{const snapshot=await readSnapshot(),all=snapshot.posts,posts=[];for(const item of all){const files=[];for(const file of mediaFiles(item))files.push({name:file.name||'photo',data:await readDataURL(file)});
-    posts.push({id:item.id,project:item.project,order:item.order,type:item.type,crop:item.crop,files});}
+    posts.push({id:item.id,project:item.project,order:item.order,type:item.type,crop:item.crop,reelsCrop:item.reelsCrop,showInMain:item.showInMain,files});}
     const backupBlob=new Blob([JSON.stringify({format:'feedboard-backup',version:1,createdAt:new Date().toISOString(),projectNames:snapshot.state.projectNames||{},posts})],{type:'application/json'});
     download(backupBlob,'feedboard-backup-'+new Date().toISOString().slice(0,10)+'.json');
     notice('Копия подготовлена. Сохрани ее в «Файлы». Можно скачать еще раз.','success',true);
@@ -1228,7 +1312,7 @@ function validateBackupImage(file,label){
 }
 document.getElementById('importBtn').onclick=()=>document.getElementById('backupInput').click();
 document.getElementById('backupInput').onchange=async e=>{
-  const file=e.target.files[0];e.target.value='';if(!file||busy||dragState)return;lock(true);notice('');
+  const file=e.target.files[0];if(!file||busy||dragState)return;lock(true);notice('');
   try{
     const importStart=(await readSnapshot()).state;
     if(importStart.generation!==loadedGeneration)throw new Error('Данные восстановлены в другом окне. Обнови эту вкладку перед импортом.');
@@ -1244,11 +1328,13 @@ document.getElementById('backupInput').onchange=async e=>{
         await validateBackupImage(imageFile,`фото ${files.length+1} публикации ${posts.length+1}`);files.push(imageFile);
       }
       if(p.crop&&(![p.crop.x,p.crop.y,p.crop.z].every(Number.isFinite)||p.crop.x<0||p.crop.x>1||p.crop.y<0||p.crop.y>1||p.crop.z<1||p.crop.z>3))throw new Error('В копии повреждено кадрирование.');
-      posts.push({id:p.id,project:p.project,order:p.order,type:p.type,crop:p.crop,file:files[0],carouselFiles:files});
+      if(p.reelsCrop&&(![p.reelsCrop.x,p.reelsCrop.y,p.reelsCrop.z].every(Number.isFinite)||p.reelsCrop.x<0||p.reelsCrop.x>1||p.reelsCrop.y<0||p.reelsCrop.y>1||p.reelsCrop.z<1||p.reelsCrop.z>3))throw new Error('В копии повреждено кадрирование Reels.');
+      if(p.showInMain!==undefined&&typeof p.showInMain!=='boolean')throw new Error('В копии повреждена настройка основной сетки.');
+      posts.push({id:p.id,project:p.project,order:p.order,type:p.type,crop:p.crop,reelsCrop:p.reelsCrop,showInMain:p.showInMain,file:files[0],carouselFiles:files});
     }
     if(!confirm('Восстановление заменит все три проекта содержимым копии. Продолжить?'))return;
     await writeChanges(posts,[],null,null,importStart,{projectNames:names});clearUndo();closeViewer();await loadProject();statusEl.textContent='Сохранено';notice('Все проекты восстановлены.');
-  }catch(e){fail(e)}finally{lock(false)}
+  }catch(e){fail(e)}finally{e.target.value='';lock(false)}
 };
 function validateProjectNames(names){
   if(!names||typeof names!=='object'||Array.isArray(names))throw new Error('В копии повреждены названия проектов.');
