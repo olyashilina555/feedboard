@@ -7,6 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Feedboard">
+<link rel="apple-touch-icon" sizes="180x180" href="./assets/f-180.png">
 <link rel="manifest" href="manifest.webmanifest">
 <title>Feedboard</title>
 <style>
@@ -95,7 +96,7 @@ input[type=file]{display:none}
 .card{
   position:relative;aspect-ratio:3/4;overflow:hidden;background:var(--soft);
   border-radius:0;user-select:none;-webkit-user-select:none;
-  touch-action:auto;transform:translateZ(0);
+  touch-action:auto;
   transition:opacity .15s ease,transform .15s ease
 }
 .card.drag-active{
@@ -338,6 +339,7 @@ button:focus-visible,label:focus-within{outline:2px solid var(--accent);outline-
 #projectName{display:block;width:100%;box-sizing:border-box;margin:12px 0;padding:12px;font:inherit;background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:10px}
 @media(max-width:359px){.viewer-type{font-size:11px}.project-btn{padding:10px 5px}}
 .storage-help{font-size:12px;color:var(--muted);margin:8px 0}.storage-help summary{min-height:44px;display:flex;align-items:center;justify-content:center;cursor:pointer}.storage-help p{line-height:1.5}#reelVisibility{display:flex;align-items:center;gap:10px;min-height:44px}#reelVisibility[hidden]{display:none}#showInMain{width:22px;height:22px;accent-color:var(--accent)}#cropZoom{touch-action:none}#cropModal .viewer-sheet{overscroll-behavior:contain}#cropModes button[aria-pressed="true"]{border-color:var(--accent)}.carousel-thumb img{touch-action:pan-x;user-select:none;-webkit-user-drag:none;-webkit-touch-callout:none}.carousel-thumb.drag-target{outline:2px solid var(--accent)}.carousel-thumb.drag-source{opacity:.45}.carousel-drag-ghost{position:fixed;pointer-events:none;z-index:150;width:74px;height:90px;object-fit:cover;border:2px solid var(--accent);border-radius:8px}
+.storage-help summary{font-weight:700;color:var(--text);gap:8px}.storage-help summary::after{content:"";width:6px;height:6px;border:solid currentColor;border-width:0 1.5px 1.5px 0;transform:rotate(45deg)}.storage-help[open] summary::after{transform:rotate(225deg)}.storage-help summary::-webkit-details-marker{display:none}
 </style>
 </head>
 <body>
@@ -345,7 +347,7 @@ button:focus-visible,label:focus-within{outline:2px solid var(--accent);outline-
   <header class="header">
     <div>
       <h1><svg class="brand-mark" viewBox="0 0 48 52" aria-hidden="true"><g fill="currentColor" transform="skewX(-12)"><rect x="13" y="3" width="34" height="14" rx="5"/><rect x="13" y="20" width="15" height="13" rx="4"/><rect x="31" y="20" width="13" height="13" rx="4"/><rect x="13" y="36" width="15" height="13" rx="4"/></g></svg><span>feedboard</span></h1>
-      <p class="subtitle">Визуальный планировщик · V3.7.1</p>
+      <p class="subtitle">Визуальный планировщик · V3.7.2</p>
     </div>
     <div class="header-actions">
       <button id="themeBtn" class="icon-btn" aria-label="Сменить тему">☾</button>
@@ -745,6 +747,7 @@ function makeCard(item){
   return card;
 }
 
+function placeCard(card,before){if(card.parentNode===grid&&typeof grid.moveBefore==='function')grid.moveBefore(card,before);else grid.insertBefore(card,before);}
 function renderFullGrid(){
   const visible=visibleItems(),ids=new Set(visible.map(p=>p.id));
   grid.querySelectorAll('.card').forEach(card=>{if(!ids.has(card.dataset.id))card.remove()});
@@ -753,7 +756,7 @@ function renderFullGrid(){
     const empty=document.createElement("div");
     empty.className="empty";
     empty.innerHTML=`<svg class="empty-mascot" viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="mascotFill" x2="1" y2="1"><stop stop-color="#FFAD72"/><stop offset="1" stop-color="#E86F3A"/></linearGradient></defs><path fill="url(#mascotFill)" d="M23 81 29 30Q31 13 48 13H73Q89 13 87 30 85 43 71 43H51L49 53H63Q76 53 73 66 71 75 59 75H46L44 84Q43 94 32 92 21 91 23 81Z"/><path d="M54 30q4-8 8 0m9-1q4-8 8 0" fill="none" stroke="#202124" stroke-width="3" stroke-linecap="round"/><circle cx="32" cy="88" r="8" fill="#F5C7A6"/><circle cx="49" cy="89" r="7" fill="#F5C7A6"/></svg><strong>Здесь начинается твоя лента</strong><span>Добавь фотографии и найди их идеальный порядок.</span>`;
-    if(gridView==='reels')empty.innerHTML='<strong>Пока нет обложек Reels</strong><span>Открой публикацию в основной сетке и выбери «Обложка Reels».</span>';
+    if(gridView==='reels'){empty.querySelector('strong').textContent='Здесь появятся твои Reels';empty.querySelector('span').textContent='Добавь первую обложку, чтобы увидеть, как будет выглядеть твоя сетка';}
     grid.appendChild(empty);
     return;
   }
@@ -764,7 +767,7 @@ function renderFullGrid(){
     const img=card.querySelector('img'),url=urlForFile(item,0);
     if(img.getAttribute('src')!==url)img.src=url;
     applyTypeIcon(card.querySelector('.type-icon'),item.type||'photo');
-    if(grid.children[index]!==card)grid.insertBefore(card,grid.children[index]||null);
+    if(grid.children[index]!==card)placeCard(card,grid.children[index]||null);
     paintCrop(img,card,cardCrop(item));
   });
 }
@@ -785,8 +788,8 @@ function reorderAtPoint(card,x,y){
   const cards=[...grid.querySelectorAll(".card")];
   const from=cards.indexOf(card);
   const to=cards.indexOf(targetCard);
-  if(from<to)grid.insertBefore(card,targetCard.nextSibling);
-  else grid.insertBefore(card,targetCard);
+  if(from<to)placeCard(card,targetCard.nextSibling);
+  else placeCard(card,targetCard);
 }
 
 function updateAutoScroll(y){
@@ -1250,9 +1253,11 @@ const cropModal=document.getElementById('cropModal'),cropImage=document.getEleme
 let cropDraft={z:1,x:.5,y:.5};let cropTarget=null,cropMode='main',cropDrafts=null;
 function chooseCropMode(mode){if(!cropDrafts)return;cropDrafts[cropMode]={...cropDraft};cropMode=mode;cropDraft={...cropDrafts[mode]};cropZoom.value=cropDraft.z;cropFrame.style.aspectRatio=mode==='reels'?'9/16':'3/4';document.getElementById('cropTitle').textContent=mode==='reels'?'Обложка в сетке Reels':'Обложка в основной сетке';for(const [id,m] of [['cropMain','main'],['cropReels','reels']])document.getElementById(id).setAttribute('aria-pressed',String(mode===m));paintCrop(cropImage,cropFrame,cropDraft);}
 document.getElementById('cropMain').onclick=()=>chooseCropMode('main');document.getElementById('cropReels').onclick=()=>chooseCropMode('reels');
+const lastPaint=new WeakMap();
 function paintCrop(img,frame,crop){
   if(!img.naturalWidth)return;
   const c=crop||{z:1,x:.5,y:.5};const w=frame.clientWidth,h=frame.clientHeight;
+  const signature=[w,h,img.naturalWidth,img.naturalHeight,c.x,c.y,c.z].join(':');if(!w||!h||lastPaint.get(img)===signature)return;lastPaint.set(img,signature);
   const scale=Math.max(w/img.naturalWidth,h/img.naturalHeight)*(c.z||1);
   const iw=img.naturalWidth*scale,ih=img.naturalHeight*scale;
   Object.assign(img.style,{width:iw+'px',height:ih+'px',left:(w-iw)*(c.x??.5)+'px',top:(h-ih)*(c.y??.5)+'px',objectFit:'fill'});

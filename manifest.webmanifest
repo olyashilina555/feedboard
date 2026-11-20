@@ -5,5 +5,19 @@
   "display": "standalone",
   "background_color": "#F7F5F1",
   "theme_color": "#F7F5F1",
-  "description": "Локальный визуальный планировщик Instagram-ленты."
+  "description": "Локальный визуальный планировщик Instagram-ленты.",
+  "icons": [
+    {
+      "src": "./assets/f-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./assets/f-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
 }
